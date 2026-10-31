@@ -1,7 +1,7 @@
 import { combinarSementes, criarRng, embaralhar } from './aleatorio.ts';
 import {
   DATAS_DA_TACA, DATAS_DOS_TORNEIOS, DATAS_POR_DIA, DATAS_POR_TORNEIO, TORNEIOS_NA_TEMPORADA,
-  copaDaData, dataDaCopa, dataDaLiga, gerarCalendario, torneioDaData,
+  copaDaData, dataDaCopa, dataDaLiga, diaDaData, gerarCalendario, torneioDaData,
 } from './calendario.ts';
 import { escalacaoParaJogo, melhorEscalacao } from './escalacao.ts';
 import {
@@ -10,7 +10,7 @@ import {
 import { gerarClubes } from './geracao.ts';
 import type { OpcoesClubes } from './geracao.ts';
 import { montarEquipe, simularPartida } from './simulacao.ts';
-import type { Clube, Competicao, DuracaoLiga, Fase, Liga, LinhaTabela, Partida, Resultado } from './tipos.ts';
+import type { Clube, Competicao, DuracaoLiga, Escalacao, Fase, Liga, LinhaTabela, Partida, Resultado } from './tipos.ts';
 
 /** Clubes de cada copa: os 8 primeiros seguem na principal, os outros 12 vão para a Copa Prata. */
 const VAGAS_MATA_MATA = 8;
@@ -257,13 +257,25 @@ function fecharData(liga: Liga, data: number) {
   }
 }
 
+function energiaMedia(escalacao: Escalacao, clube: Clube) {
+  const ids = new Set(escalacao.titulares.map((t) => t.jogadorId));
+  const titulares = clube.elenco.filter((j) => ids.has(j.id));
+  return Math.round(titulares.reduce((soma, j) => soma + j.energia, 0) / titulares.length);
+}
+
 function jogarPartida(liga: Liga, partida: Partida) {
   const casa = clubePorId(liga, partida.casaId);
   const fora = clubePorId(liga, partida.foraId);
   const semente = combinarSementes(liga.semente, liga.temporada, partida.id);
   const escalacaoCasa = escalacaoParaJogo(casa);
   const escalacaoFora = escalacaoParaJogo(fora);
-  const resultado = simularPartida(montarEquipe(casa, escalacaoCasa), montarEquipe(fora, escalacaoFora), semente);
+  const equipeCasa = montarEquipe(casa, escalacaoCasa);
+  const equipeFora = montarEquipe(fora, escalacaoFora);
+  const resultado: Resultado = {
+    ...simularPartida(equipeCasa, equipeFora, semente),
+    energiaCasa: energiaMedia(escalacaoCasa, casa),
+    energiaFora: energiaMedia(escalacaoFora, fora),
+  };
 
   if (partida.decisiva) {
     const placar = placarAgregado(liga, partida, resultado);
@@ -316,6 +328,15 @@ export function jogarRodada(liga: Liga): Liga {
   fecharData(nova, data);
   nova.rodadaAtual = data + 1;
   return nova;
+}
+
+/** Joga as datas que faltam no dia, para quem quer ver só o resumo. */
+export function jogarDia(liga: Liga): Liga {
+  if (temporadaEncerrada(liga)) return liga;
+  const dia = diaDaData(liga.rodadaAtual);
+  let atual = liga;
+  while (!temporadaEncerrada(atual) && diaDaData(atual.rodadaAtual) === dia) atual = jogarRodada(atual);
+  return atual;
 }
 
 /** Mantém clubes, saldo e títulos; o elenco envelhece e o calendário recomeça. */

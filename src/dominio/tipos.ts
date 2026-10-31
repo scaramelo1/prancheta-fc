@@ -47,6 +47,8 @@ export interface Clube {
   /** Ligado, o assistente poupa cansados e repõe desfalques a cada jogo. */
   assistente: boolean;
   saldo: number;
+  /** Dia em que o técnico respondeu à decisão diária. */
+  decididoNoDia?: number;
 }
 
 export type TipoEvento = 'gol' | 'chance' | 'amarelo' | 'vermelho' | 'lesao';
@@ -67,6 +69,9 @@ export interface Resultado {
   posseCasa: number;
   chancesCasa: number;
   chancesFora: number;
+  /** Energia média dos titulares ao começar o jogo. */
+  energiaCasa?: number;
+  energiaFora?: number;
   eventos: Evento[];
   /** Preenchido quando um mata-mata empata e vai para os pênaltis. */
   vencedorPenaltis?: number;

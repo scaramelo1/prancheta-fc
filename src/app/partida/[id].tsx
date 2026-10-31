@@ -2,8 +2,9 @@ import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { Aviso, Botao, Carregando, Escudo } from '../../componentes/ui';
+import { Aviso, Botao, Carregando, Chip, Escudo } from '../../componentes/ui';
 import { clubePorId } from '../../dominio/liga';
+import { explicarPartida } from '../../dominio/resumo';
 import type { Evento } from '../../dominio/tipos';
 import { useLiga } from '../../hooks/useLiga';
 import { t } from '../../i18n';
@@ -25,8 +26,9 @@ function narrar(e: Evento) {
 
 export default function Partida() {
   const { id, aoVivo } = useLocalSearchParams<{ id: string; aoVivo?: string }>();
-  const { pronta, liga } = useLiga();
+  const { pronta, liga, meuClube } = useLiga();
   const [minuto, setMinuto] = useState(aoVivo === '1' ? 0 : FIM);
+  const [soGols, setSoGols] = useState(false);
 
   useEffect(() => {
     if (minuto >= FIM) return;
@@ -44,6 +46,8 @@ export default function Partida() {
   const lances = resultado.eventos.filter((e) => e.minuto <= minuto);
   const gols = (clubeId: number) => lances.filter((e) => e.tipo === 'gol' && e.clubeId === clubeId).length;
   const encerrada = minuto >= FIM;
+  const visiveis = soGols ? lances.filter((e) => e.tipo === 'gol') : lances;
+  const minhaPartida = meuClube && (partida.casaId === meuClube.id || partida.foraId === meuClube.id);
   const titulo = [t.competicoes[partida.competicao], t.fases[partida.fase]].filter(Boolean).join(' · ');
 
   return (
@@ -79,14 +83,19 @@ export default function Partida() {
             <Text style={estilos.rotulo}>{t.chances}</Text>
             <Text style={estilos.valor}>{resultado.chancesFora}</Text>
           </View>
+          {meuClube && minhaPartida && <Text style={estilos.motivo}>{t.motivos[explicarPartida(partida, meuClube.id)]}</Text>}
         </View>
       ) : (
         <Botao secundario texto={t.pularNarracao} aoTocar={() => setMinuto(FIM)} />
       )}
 
+      <View style={estilos.filtro}>
+        <Chip texto={t.soGols} ativo={soGols} aoTocar={() => setSoGols(!soGols)} />
+      </View>
+
       <View style={estilos.cartao}>
-        {lances.length === 0 && <Text style={estilos.lance}>{t.semLances}</Text>}
-        {[...lances].reverse().map((e, i) => (
+        {visiveis.length === 0 && <Text style={estilos.lance}>{t.semLances}</Text>}
+        {[...visiveis].reverse().map((e, i) => (
           <View key={`${e.minuto}-${e.jogadorId}-${i}`} style={estilos.linhaLance}>
             <Text style={estilos.minuto}>{`${e.minuto}'`}</Text>
             <Text style={estilos.icone}>{ICONES[e.tipo]}</Text>
@@ -105,6 +114,8 @@ const estilos = StyleSheet.create({
   tela: { padding: espaco.m, gap: espaco.m },
   flex: { flex: 1 },
   competicao: { color: cores.destaque, fontSize: 13, fontWeight: '700', textAlign: 'center' },
+  motivo: { color: cores.textoSuave, fontSize: 14, lineHeight: 20, textAlign: 'center' },
+  filtro: { flexDirection: 'row' },
   penaltis: { color: cores.destaque, fontSize: 14, fontWeight: '700', textAlign: 'center' },
   placar: { flexDirection: 'row', alignItems: 'center' },
   lado: { flex: 1, alignItems: 'center', gap: 6 },

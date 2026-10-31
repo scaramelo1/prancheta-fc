@@ -1,3 +1,5 @@
+import type { TipoDecisao } from '../dominio/decisoes';
+import type { Motivo } from '../dominio/resumo';
 import type { Competicao, Dificuldade, DuracaoLiga, Estilo, Fase, Posicao } from '../dominio/tipos';
 
 export type IdiomaApp = 'pt' | 'en' | 'es';
@@ -21,6 +23,14 @@ export interface Textos {
   competicoes: Record<Competicao, string>;
   fases: Record<Fase, string>;
   semJogo: string;
+  simularDia: string;
+  verJogo: string;
+  soGols: string;
+  decisaoDoDia: string;
+  aceitar: string;
+  recusar: string;
+  decisoes: Record<TipoDecisao, (jogador: string) => string>;
+  motivos: Record<Motivo, string>;
   avancarData: string;
   saldo: (valor: string) => string;
   temporadaNumero: (n: number) => string;
@@ -93,6 +103,26 @@ const pt: Textos = {
   competicoes: { liga: 'Liga', copa: 'Copa', prata: 'Copa Prata', taca: 'Taça dos Campeões' },
   fases: { pontos: '', quartas: 'Quartas de final', semifinal: 'Semifinal', terceiro: 'Terceiro lugar', final: 'Final' },
   semJogo: 'Seu clube não joga nesta data.',
+  simularDia: 'Simular o dia inteiro',
+  verJogo: 'Ver o jogo',
+  soGols: 'Só os gols',
+  decisaoDoDia: 'Decisão do dia',
+  aceitar: 'Aceitar',
+  recusar: 'Agora não',
+  decisoes: {
+    folga: () => 'Dar folga ao elenco por R$ 50 mil? Todos ganham 15 de energia.',
+    amistoso: () => 'Amistoso pago: recebe R$ 150 mil, mas todos perdem 10 de energia.',
+    jovem: (jogador) => `Treino extra para ${jogador} por R$ 100 mil? Ganha 1 ponto de força.`,
+  },
+  motivos: {
+    expulsao: 'A expulsão pesou: com um a menos, o time perdeu força.',
+    cansaco: 'O time entrou mais cansado que o rival. Vale poupar titulares.',
+    meioDominado: 'O domínio do meio-campo decidiu o jogo.',
+    meioPerdido: 'O rival dominou o meio-campo. Tente reforçar esse setor.',
+    faltouPontaria: 'O time criou mais, mas faltou pontaria.',
+    aproveitou: 'O time criou menos, mas aproveitou as chances.',
+    equilibrado: 'Jogo equilibrado, decidido nos detalhes.',
+  },
   avancarData: 'Avançar',
   saldo: (valor) => `Saldo: R$ ${valor}`,
   temporadaNumero: (n) => `Temporada ${n}`,
@@ -165,6 +195,26 @@ const en: Textos = {
   competicoes: { liga: 'League', copa: 'Cup', prata: 'Silver Cup', taca: 'Champions Trophy' },
   fases: { pontos: '', quartas: 'Quarter-final', semifinal: 'Semi-final', terceiro: 'Third place', final: 'Final' },
   semJogo: 'Your club has no match on this date.',
+  simularDia: 'Simulate the whole day',
+  verJogo: 'View match',
+  soGols: 'Goals only',
+  decisaoDoDia: 'Decision of the day',
+  aceitar: 'Accept',
+  recusar: 'Not now',
+  decisoes: {
+    folga: () => 'Give the squad a day off for 50,000? Everyone gains 15 energy.',
+    amistoso: () => 'Paid friendly: earn 150,000, but everyone loses 10 energy.',
+    jovem: (jogador) => `Extra training for ${jogador} for 100,000? Gains 1 strength point.`,
+  },
+  motivos: {
+    expulsao: 'The red card hurt: a player down, the team lost strength.',
+    cansaco: 'The team started more tired than the opponent. Consider resting starters.',
+    meioDominado: 'Control of midfield decided the match.',
+    meioPerdido: 'The opponent controlled midfield. Try strengthening that area.',
+    faltouPontaria: 'The team created more but lacked finishing.',
+    aproveitou: 'The team created less but took its chances.',
+    equilibrado: 'A close match, decided by the details.',
+  },
   avancarData: 'Continue',
   saldo: (valor) => `Balance: ${valor}`,
   temporadaNumero: (n) => `Season ${n}`,
@@ -237,6 +287,26 @@ const es: Textos = {
   competicoes: { liga: 'Liga', copa: 'Copa', prata: 'Copa Plata', taca: 'Copa de Campeones' },
   fases: { pontos: '', quartas: 'Cuartos de final', semifinal: 'Semifinal', terceiro: 'Tercer puesto', final: 'Final' },
   semJogo: 'Tu club no juega en esta fecha.',
+  simularDia: 'Simular todo el día',
+  verJogo: 'Ver el partido',
+  soGols: 'Solo goles',
+  decisaoDoDia: 'Decisión del día',
+  aceitar: 'Aceptar',
+  recusar: 'Ahora no',
+  decisoes: {
+    folga: () => '¿Dar descanso a la plantilla por 50.000? Todos ganan 15 de energía.',
+    amistoso: () => 'Amistoso pagado: recibes 150.000, pero todos pierden 10 de energía.',
+    jovem: (jogador) => `¿Entrenamiento extra para ${jogador} por 100.000? Gana 1 punto de fuerza.`,
+  },
+  motivos: {
+    expulsao: 'La expulsión pesó: con uno menos, el equipo perdió fuerza.',
+    cansaco: 'El equipo llegó más cansado que el rival. Conviene reservar titulares.',
+    meioDominado: 'El dominio del mediocampo decidió el partido.',
+    meioPerdido: 'El rival dominó el mediocampo. Intenta reforzar esa zona.',
+    faltouPontaria: 'El equipo creó más, pero le faltó puntería.',
+    aproveitou: 'El equipo creó menos, pero aprovechó sus ocasiones.',
+    equilibrado: 'Partido parejo, decidido en los detalles.',
+  },
   avancarData: 'Avanzar',
   saldo: (valor) => `Saldo: ${valor}`,
   temporadaNumero: (n) => `Temporada ${n}`,

@@ -6,13 +6,15 @@ import {
   copaDaData, dataDaCopa, dataDaLiga, diaDaData, gerarCalendario, horarioDaData,
 } from '../calendario.ts';
 import { escalacaoParaJogo, forcaEfetiva, melhorEscalacao, trocarTitular, vagasDaFormacao } from '../escalacao.ts';
+import { CACHE_AMISTOSO, CUSTO_FOLGA, CUSTO_TREINO_JOVEM, aplicarDecisao, decisaoDoDia } from '../decisoes.ts';
 import { evoluirClubes, folhaSalarial, premioDaLiga, salarioDe } from '../evolucao.ts';
 import { gerarSigla } from '../geracao.ts';
 import {
-  calcularTabela, criarLiga, jogarRodada, novaTemporada, partidaDoClube, tabelaDaCompeticao, tabelaGeral, temporadaEncerrada, vencedorDaPartida,
+  calcularTabela, criarLiga, jogarDia, jogarRodada, novaTemporada, partidaDoClube, tabelaDaCompeticao, tabelaGeral, temporadaEncerrada, vencedorDaPartida,
 } from '../liga.ts';
 import { montarEquipe, simularPartida } from '../simulacao.ts';
-import type { Clube, DuracaoLiga, Liga } from '../tipos.ts';
+import { explicarPartida } from '../resumo.ts';
+import type { Clube, DuracaoLiga, Evento, Liga, Partida, Resultado } from '../tipos.ts';
 
 const nova = (duracao: DuracaoLiga = 'torneio', semente = 7): Liga =>
   criarLiga('l', { nomeClube: 'Teste FC', donoId: 'eu', dificuldade: 'normal', duracao, semente });
@@ -398,5 +400,112 @@ describe('temporada', () => {
     const p = (casaId: number, foraId: number, g1: number, g2: number) => ({ casaId, foraId, resultado: r(g1, g2) });
     const tabela = calcularTabela([1, 2, 3], [p(1, 3, 1, 0), p(2, 3, 5, 0)]);
     assert.deepEqual(tabela.map((l) => l.clubeId), [2, 1, 3]);
+  });
+});
+
+describe('resumo do jogo', () => {
+  const resultado = (extra: Partial<Resultado>): Resultado => ({
+    golsCasa: 1, golsFora: 0, posseCasa: 50, chancesCasa: 10, chancesFora: 10, energiaCasa: 80, energiaFora: 80, eventos: [], ...extra,
+  });
+  const partida = (r: Resultado | null): Partida => ({
+    id: 1, rodada: 1, competicao: 'liga', torneio: 1, fase: 'pontos', decisiva: false, casaId: 1, foraId: 2, resultado: r,
+  });
+  const vermelho: Evento = { minuto: 10, tipo: 'vermelho', clubeId: 2, jogadorId: 9, jogador: 'X', rodadasFora: 1 };
+
+  it('aponta a causa da derrota', () => {
+    assert.equal(explicarPartida(partida(resultado({ eventos: [vermelho] })), 2), 'expulsao');
+    assert.equal(explicarPartida(partida(resultado({ energiaFora: 50 })), 2), 'cansaco');
+    assert.equal(explicarPartida(partida(resultado({ chancesFora: 15 })), 2), 'faltouPontaria');
+    assert.equal(explicarPartida(partida(resultado({ posseCasa: 60, chancesCasa: 15 })), 2), 'meioPerdido');
+  });
+
+  it('aponta a causa da vitória, vista por qualquer lado', () => {
+    assert.equal(explicarPartida(partida(resultado({ posseCasa: 60 })), 1), 'meioDominado');
+    assert.equal(explicarPartida(partida(resultado({ chancesCasa: 4 })), 1), 'aproveitou');
+    assert.equal(explicarPartida(partida(resultado({ golsCasa: 0, golsFora: 2, chancesFora: 3 })), 2), 'aproveitou');
+  });
+
+  it('empate e jogo sem resultado são equilibrados', () => {
+    assert.equal(explicarPartida(partida(resultado({ golsFora: 1, posseCasa: 70 })), 1), 'equilibrado');
+    assert.equal(explicarPartida(partida(null), 1), 'equilibrado');
+  });
+
+  it('a partida jogada guarda a energia dos dois times', () => {
+    const r = temporadaCompleta.partidas[0].resultado!;
+    assert.equal(r.energiaCasa, 100);
+    assert.equal(r.energiaFora, 100);
+  });
+});
+
+describe('simular o dia', () => {
+  it('joga as 3 datas do dia e para no dia seguinte', () => {
+    assert.equal(jogarDia(nova()).rodadaAtual, 4);
+  });
+
+  it('continuando de uma data no meio do dia, joga só o que falta', () => {
+    assert.equal(jogarDia(jogarRodada(nova())).rodadaAtual, 4);
+  });
+
+  it('não faz nada com a temporada encerrada', () => {
+    assert.equal(jogarDia(temporadaCompleta), temporadaCompleta);
+  });
+});
+
+describe('decisão do dia', () => {
+  const comDecisao = (tipo: string) => {
+    for (let semente = 1; semente < 200; semente++) {
+      const liga = nova('torneio', semente);
+      const decisao = decisaoDoDia(liga, liga.clubes[0]);
+      if (decisao?.tipo === tipo) return { liga, decisao };
+    }
+    throw new Error(`sem decisão ${tipo}`);
+  };
+
+  it('aparece uma vez por dia e volta no dia seguinte', () => {
+    const { liga, decisao } = comDecisao('folga');
+    const respondida = aplicarDecisao(liga, 0, decisao, false);
+    assert.equal(decisaoDoDia(respondida, respondida.clubes[0]), null);
+    assert.notEqual(decisaoDoDia(jogarDia(respondida), respondida.clubes[0]), null);
+  });
+
+  it('recusar não muda nada além de marcar o dia', () => {
+    const { liga, decisao } = comDecisao('amistoso');
+    const depois = aplicarDecisao(liga, 0, decisao, false);
+    assert.equal(depois.clubes[0].saldo, liga.clubes[0].saldo);
+    assert.deepEqual(depois.clubes[0].elenco, liga.clubes[0].elenco);
+  });
+
+  it('a folga custa dinheiro e devolve energia, sem passar de 100', () => {
+    const { liga, decisao } = comDecisao('folga');
+    liga.clubes[0].elenco[0].energia = 50;
+    const depois = aplicarDecisao(liga, 0, decisao, true).clubes[0];
+    assert.equal(depois.saldo, liga.clubes[0].saldo - CUSTO_FOLGA);
+    assert.equal(depois.elenco[0].energia, 65);
+    assert.equal(depois.elenco[1].energia, 100);
+  });
+
+  it('o amistoso paga e cansa', () => {
+    const { liga, decisao } = comDecisao('amistoso');
+    const depois = aplicarDecisao(liga, 0, decisao, true).clubes[0];
+    assert.equal(depois.saldo, liga.clubes[0].saldo + CACHE_AMISTOSO);
+    assert.equal(depois.elenco[0].energia, 90);
+  });
+
+  it('o treino do jovem respeita o potencial', () => {
+    const { liga, decisao } = comDecisao('jovem');
+    const antes = liga.clubes[0].elenco.find((j) => j.id === decisao.jogadorId)!;
+    const depois = aplicarDecisao(liga, 0, decisao, true).clubes[0];
+    assert.equal(depois.saldo, liga.clubes[0].saldo - CUSTO_TREINO_JOVEM);
+    assert.equal(depois.elenco.find((j) => j.id === decisao.jogadorId)!.forca, antes.forca + 1);
+  });
+
+  it('sem dinheiro, não oferece treino pago de jovem', () => {
+    const { liga } = comDecisao('jovem');
+    liga.clubes[0].saldo = 0;
+    assert.equal(decisaoDoDia(liga, liga.clubes[0])?.tipo, 'amistoso');
+  });
+
+  it('não aparece depois do fim da temporada', () => {
+    assert.equal(decisaoDoDia(temporadaCompleta, temporadaCompleta.clubes[0]), null);
   });
 });

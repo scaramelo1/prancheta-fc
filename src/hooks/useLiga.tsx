@@ -3,7 +3,9 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { ReactNode } from 'react';
 
 import { apagarLigas, carregarLiga, salvarLiga } from '../db/repositorio';
-import { clubeDoDono, criarLiga, jogarRodada, novaTemporada } from '../dominio/liga';
+import { aplicarDecisao } from '../dominio/decisoes';
+import type { Decisao } from '../dominio/decisoes';
+import { clubeDoDono, criarLiga, jogarDia, jogarRodada, novaTemporada } from '../dominio/liga';
 import type { Clube, Dificuldade, DuracaoLiga, Escalacao, Liga } from '../dominio/tipos';
 
 /** Sem login por enquanto: o único humano é o dono do aparelho. */
@@ -15,7 +17,9 @@ interface ValorLiga {
   meuClube: Clube | null;
   iniciar: (nomeClube: string, duracao: DuracaoLiga, dificuldade: Dificuldade) => void;
   salvarEscalacao: (escalacao: Escalacao, assistente: boolean) => void;
-  jogar: () => Liga | null;
+  jogar: () => void;
+  simularDia: () => void;
+  decidir: (decisao: Decisao, aceitar: boolean) => void;
   proximaTemporada: () => void;
   apagar: () => void;
 }
@@ -53,10 +57,17 @@ export function ProvedorLiga({ children }: { children: ReactNode }) {
   }, [atualizar, liga]);
 
   const jogar = useCallback(() => {
-    if (!liga) return null;
-    const nova = jogarRodada(liga);
-    atualizar(nova);
-    return nova;
+    if (liga) atualizar(jogarRodada(liga));
+  }, [atualizar, liga]);
+
+  const simularDia = useCallback(() => {
+    if (liga) atualizar(jogarDia(liga));
+  }, [atualizar, liga]);
+
+  const decidir = useCallback((decisao: Decisao, aceitar: boolean) => {
+    if (!liga) return;
+    const clube = clubeDoDono(liga, DONO_LOCAL);
+    if (clube) atualizar(aplicarDecisao(liga, clube.id, decisao, aceitar));
   }, [atualizar, liga]);
 
   const proximaTemporada = useCallback(() => {
@@ -75,9 +86,11 @@ export function ProvedorLiga({ children }: { children: ReactNode }) {
     iniciar,
     salvarEscalacao,
     jogar,
+    simularDia,
+    decidir,
     proximaTemporada,
     apagar,
-  }), [apagar, iniciar, jogar, liga, pronta, proximaTemporada, salvarEscalacao]);
+  }), [apagar, decidir, iniciar, jogar, liga, pronta, proximaTemporada, salvarEscalacao, simularDia]);
 
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>;
 }

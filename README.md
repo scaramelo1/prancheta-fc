@@ -3,10 +3,11 @@
 App Android/iOS (Expo) de gerenciamento de futebol: monte o time, escolha a tática e dispute a
 temporada contra clubes da máquina. Todos os clubes e jogadores são fictícios.
 
-- **Clube**: cria a liga de 20 clubes, mostra o próximo jogo e avança o calendário.
+- **Clube**: cria a liga de 20 clubes, mostra o próximo jogo, a decisão do dia e o motivo do último
+  resultado. Dá para jogar uma data ou simular o dia inteiro.
 - **Elenco**: formação, estilo de jogo, assistente, energia e troca de titulares.
 - **Tabela**: liga, copa, classificação geral e resultados por data.
-- **Partida**: narração minuto a minuto e estatísticas.
+- **Partida**: narração minuto a minuto, estatísticas e filtro só com os gols.
 
 ## Temporada
 

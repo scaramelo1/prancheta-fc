@@ -5,9 +5,11 @@ import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-nati
 
 import { Botao, Carregando, Chip, Escudo } from '../../componentes/ui';
 import { diaDaData, horarioDaData } from '../../dominio/calendario';
+import { decisaoDoDia } from '../../dominio/decisoes';
 import {
   clubePorId, partidaDoClube, tabelaDaCompeticao, tabelaGeral, temporadaEncerrada, torneioAtual, ultimaPartidaDoClube,
 } from '../../dominio/liga';
+import { explicarPartida } from '../../dominio/resumo';
 import type { Clube, Dificuldade, DuracaoLiga, Liga, Partida } from '../../dominio/tipos';
 import { useLiga } from '../../hooks/useLiga';
 import { t } from '../../i18n';
@@ -97,7 +99,7 @@ const nomeDaPartida = (p: Partida) =>
   [t.competicoes[p.competicao], t.fases[p.fase]].filter(Boolean).join(' · ');
 
 function Painel({ liga, clube }: { liga: Liga; clube: Clube }) {
-  const { jogar, apagar, proximaTemporada } = useLiga();
+  const { jogar, simularDia, decidir, apagar, proximaTemporada } = useLiga();
   const torneio = torneioAtual(liga);
   const tabela = torneio > 0 ? tabelaDaCompeticao(liga, 'liga', torneio) : tabelaGeral(liga);
   const geral = tabelaGeral(liga);
@@ -106,6 +108,7 @@ function Painel({ liga, clube }: { liga: Liga; clube: Clube }) {
   const proxima = encerrada ? undefined : partidaDoClube(liga, liga.rodadaAtual, clube.id);
   const ultima = ultimaPartidaDoClube(liga, clube.id);
   const titulos = liga.titulos.filter((x) => x.clubeId === clube.id);
+  const decisao = decisaoDoDia(liga, clube);
   const foraIds = new Set(clube.elenco.filter((j) => j.rodadasFora > 0).map((j) => j.id));
   const desfalques = clube.assistente ? 0 : (clube.escalacao?.titulares.filter((e) => foraIds.has(e.jogadorId)).length ?? 0);
 
@@ -139,6 +142,21 @@ function Painel({ liga, clube }: { liga: Liga; clube: Clube }) {
         </View>
       )}
 
+      {decisao && (
+        <View style={estilos.cartao}>
+          <Text style={estilos.rotuloCartao}>{t.decisaoDoDia}</Text>
+          <Text style={estilos.textoDecisao}>{t.decisoes[decisao.tipo](decisao.jogador ?? '')}</Text>
+          <View style={estilos.linhaBotoes}>
+            <View style={estilos.flex}>
+              <Botao texto={t.aceitar} aoTocar={() => decidir(decisao, true)} />
+            </View>
+            <View style={estilos.flex}>
+              <Botao secundario texto={t.recusar} aoTocar={() => decidir(decisao, false)} />
+            </View>
+          </View>
+        </View>
+      )}
+
       {!encerrada && (
         <View style={estilos.cartao}>
           <Text style={estilos.rotuloCartao}>
@@ -156,6 +174,7 @@ function Painel({ liga, clube }: { liga: Liga; clube: Clube }) {
           )}
           {desfalques > 0 && <Text style={estilos.alerta}>{t.desfalques(desfalques)}</Text>}
           <Botao texto={proxima ? t.jogarRodada : t.avancarData} aoTocar={jogarRodada} />
+          <Botao secundario texto={t.simularDia} aoTocar={simularDia} />
         </View>
       )}
 
@@ -167,7 +186,8 @@ function Painel({ liga, clube }: { liga: Liga; clube: Clube }) {
             fora={clubePorId(liga, ultima.foraId)}
             placar={`${ultima.resultado.golsCasa} x ${ultima.resultado.golsFora}`}
           />
-          <Botao secundario texto={t.fimDeJogo} aoTocar={() => abrirPartida(ultima.id)} />
+          <Text style={estilos.suave}>{t.motivos[explicarPartida(ultima, clube.id)]}</Text>
+          <Botao secundario texto={t.verJogo} aoTocar={() => abrirPartida(ultima.id)} />
         </View>
       )}
 
@@ -216,6 +236,8 @@ const estilos = StyleSheet.create({
   alerta: { color: cores.destaque, fontSize: 13, textAlign: 'center' },
   linhaChips: { flexDirection: 'row', flexWrap: 'wrap', gap: espaco.p },
   acao: { marginTop: espaco.p },
+  textoDecisao: { color: cores.texto, fontSize: 15, lineHeight: 21 },
+  linhaBotoes: { flexDirection: 'row', gap: espaco.p },
   cabecalho: { flexDirection: 'row', alignItems: 'center', gap: espaco.m },
   cartao: { backgroundColor: cores.cartao, borderRadius: 14, padding: espaco.m, gap: espaco.m },
   campeao: { color: cores.texto, fontSize: 20, fontWeight: '800' },
