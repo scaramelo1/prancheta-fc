@@ -3,8 +3,8 @@
 App Android/iOS (Expo) de gerenciamento de futebol: monte o time, escolha a tática e dispute a
 temporada contra clubes da máquina. Todos os clubes e jogadores são fictícios.
 
-- **Clube**: cria a liga de 20 clubes, mostra o próximo jogo, a decisão do dia e o motivo do último
-  resultado. Dá para jogar uma data ou simular o dia inteiro.
+- **Clube**: cria a liga de 20 clubes ou entra por código de convite, mostra o próximo jogo, a decisão
+  do dia e o motivo do último resultado.
 - **Elenco**: formação, estilo de jogo, assistente, energia e troca de titulares.
 - **Tabela**: liga, copa, classificação geral e resultados por data.
 - **Partida**: narração minuto a minuto, estatísticas e filtro só com os gols.
@@ -34,8 +34,8 @@ equilíbrio entre formações.
 
 ## Situação
 
-O app ainda roda só no aparelho (expo-sqlite), e cada toque avança uma data do calendário. O servidor
-já existe, mas o app ainda não se conecta a ele. Faltam ligar os dois, transferências e o Mundo Oficial. Os campos `tipo`, `divisao`, `temporada` e `donoId` da
+O jogo é online: a liga fica no servidor, e no aparelho (expo-sqlite) ficam só a conta e a última liga
+aberta. Faltam login com recuperação de conta, notificações, transferências e o Mundo Oficial. Os campos `tipo`, `divisao`, `temporada` e `donoId` da
 liga já estão no modelo para isso.
 
 ## Servidor

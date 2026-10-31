@@ -382,6 +382,7 @@ describe('temporada', () => {
     assert.equal(clube.elenco.length, 22);
     assert.ok(clube.elenco.every((j) => j.idade <= 19 && j.potencial >= j.forca));
     assert.equal(escalacaoParaJogo(clube).titulares.length, 11);
+    assert.ok(escalacaoValida(clube, clube.escalacao!), 'a escalação salva continua válida');
     const ids = evoluirClubes(liga).flatMap((c) => c.elenco.map((j) => j.id));
     assert.equal(new Set(ids).size, ids.length);
   });

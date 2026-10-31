@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-const VERSAO_ATUAL = 2;
+const VERSAO_ATUAL = 3;
 
 /** Passado como onInit do SQLiteProvider; roda a cada abertura do banco. */
 export async function migrar(db: SQLiteDatabase) {
@@ -8,21 +8,16 @@ export async function migrar(db: SQLiteDatabase) {
   const versao = linha?.user_version ?? 0;
   if (versao >= VERSAO_ATUAL) return;
 
-  if (versao === 1) {
-    // O formato da temporada mudou e as ligas antigas não abrem nele.
-    await db.execAsync(`DELETE FROM liga; PRAGMA user_version = ${VERSAO_ATUAL};`);
-    return;
-  }
-
+  // A liga agora vive no servidor; no aparelho ficam só a conta e a última liga aberta.
   await db.execAsync(`
     PRAGMA journal_mode = WAL;
 
-    -- A liga inteira em JSON: quando houver servidor, ela passa a vir de lá.
-    CREATE TABLE liga (
-      id TEXT PRIMARY KEY,
-      dados TEXT NOT NULL,
-      atualizado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-    );
+    DROP TABLE IF EXISTS liga;
+
+    CREATE TABLE config (
+      chave TEXT PRIMARY KEY,
+      valor TEXT NOT NULL
+    ) WITHOUT ROWID;
 
     PRAGMA user_version = ${VERSAO_ATUAL};
   `);

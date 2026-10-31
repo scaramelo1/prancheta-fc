@@ -47,7 +47,7 @@ export default function Elenco() {
   const [trocando, setTrocando] = useState<Escalado | null>(null);
 
   if (!pronta) return <Carregando />;
-  if (!meuClube?.escalacao) return <Aviso texto={t.novaLigaTexto} />;
+  if (!meuClube?.escalacao) return <Aviso texto={t.semLiga} />;
 
   const clube = meuClube;
   const escalacao = meuClube.escalacao;

@@ -16,14 +16,34 @@ export interface Textos {
   duracoes: Record<DuracaoLiga, string>;
   dificuldade: string;
   dificuldades: Record<Dificuldade, string>;
-  iniciarLiga: string;
   erroNome: string;
   diaHora: (dia: number, hora: string) => string;
   torneios: Record<number, string>;
   competicoes: Record<Competicao, string>;
   fases: Record<Fase, string>;
   semJogo: string;
-  simularDia: string;
+  criarLiga: string;
+  semLiga: string;
+  entrarTitulo: string;
+  entrarTexto: string;
+  codigoConvite: string;
+  entrarLiga: string;
+  erroCodigo: string;
+  outraLiga: string;
+  voltar: string;
+  conviteTitulo: string;
+  conviteTexto: (codigo: string) => string;
+  compartilhar: string;
+  mensagemConvite: (codigo: string) => string;
+  tecnicos: (n: number) => string;
+  iniciarLiga: string;
+  iniciarAviso: string;
+  aguardandoDono: string;
+  comecaAoMeioDia: string;
+  proximoJogoEm: string;
+  proximaTemporadaAviso: string;
+  erroConexao: string;
+  tentarDeNovo: string;
   verJogo: string;
   soGols: string;
   decisaoDoDia: string;
@@ -31,11 +51,9 @@ export interface Textos {
   recusar: string;
   decisoes: Record<TipoDecisao, (jogador: string) => string>;
   motivos: Record<Motivo, string>;
-  avancarData: string;
   saldo: (valor: string) => string;
   temporadaNumero: (n: number) => string;
   titulosClube: string;
-  novaTemporada: string;
   assistente: string;
   assistenteTexto: string;
   penaltis: (clube: string) => string;
@@ -43,19 +61,12 @@ export interface Textos {
   geral: string;
   emCasa: string;
   foraDeCasa: string;
-  jogarRodada: string;
-  simulando: string;
   ultimoJogo: string;
   posicaoAtual: (posicao: number, pontos: number) => string;
   desfalques: (n: number) => string;
   temporadaFim: string;
   campeao: (clube: string) => string;
   suaPosicao: (posicao: number) => string;
-  novaLiga: string;
-  apagarTitulo: string;
-  apagarTexto: string;
-  apagar: string;
-  cancelar: string;
   formacao: string;
   estilo: string;
   estilos: Record<Estilo, string>;
@@ -89,21 +100,41 @@ const pt: Textos = {
   abaElenco: 'Elenco',
   abaTabela: 'Tabela',
   novaLigaTitulo: 'Monte sua liga',
-  novaLigaTexto: 'Dê um nome ao seu clube. As outras vagas ficam com clubes da máquina.',
+  novaLigaTexto: 'Dê um nome ao seu clube. As vagas sem amigos ficam com clubes da máquina.',
   nomeClube: 'Nome do clube',
   nomeClubeExemplo: 'Ex.: Unidos da Vila',
   duracaoLiga: 'Duração',
   duracoes: { torneio: '1 torneio (19 dias)', temporada: 'Temporada (60 dias)' },
   dificuldade: 'Dificuldade',
   dificuldades: { facil: 'Fácil', normal: 'Normal', dificil: 'Difícil' },
-  iniciarLiga: 'Começar temporada',
   erroNome: 'Use de 3 a 24 letras no nome do clube.',
   diaHora: (dia, hora) => `Dia ${dia} · ${hora}`,
   torneios: { 0: 'Finais', 1: 'Torneio de Abertura', 2: 'Torneio Intermediário', 3: 'Torneio de Encerramento' },
   competicoes: { liga: 'Liga', copa: 'Copa', prata: 'Copa Prata', taca: 'Taça dos Campeões' },
   fases: { pontos: '', quartas: 'Quartas de final', semifinal: 'Semifinal', terceiro: 'Terceiro lugar', final: 'Final' },
   semJogo: 'Seu clube não joga nesta data.',
-  simularDia: 'Simular o dia inteiro',
+  criarLiga: 'Criar liga',
+  semLiga: 'Crie uma liga ou entre com um convite na aba Clube.',
+  entrarTitulo: 'Tem um convite?',
+  entrarTexto: 'Digite o código que seu amigo enviou. Você assume um clube da liga.',
+  codigoConvite: 'Código do convite',
+  entrarLiga: 'Entrar na liga',
+  erroCodigo: 'Digite o código de 6 letras.',
+  outraLiga: 'Criar ou entrar em outra liga',
+  voltar: 'Voltar',
+  conviteTitulo: 'Convide seus amigos',
+  conviteTexto: (codigo) => `Código da liga: ${codigo}. Cada amigo assume um clube da máquina.`,
+  compartilhar: 'Enviar convite',
+  mensagemConvite: (codigo) => `Entra na minha liga no Prancheta FC! Código: ${codigo}`,
+  tecnicos: (n) => (n === 1 ? '1 técnico na liga' : `${n} técnicos na liga`),
+  iniciarLiga: 'Iniciar a liga',
+  iniciarAviso: 'A primeira rodada será ao meio-dia. Amigos ainda podem entrar depois.',
+  aguardandoDono: 'Aguardando quem criou a liga dar o início.',
+  comecaAoMeioDia: 'A liga começa no próximo meio-dia. Ajuste seu time até lá.',
+  proximoJogoEm: 'Os jogos acontecem sozinhos às 12h, 18h e 21h.',
+  proximaTemporadaAviso: 'A próxima temporada começa no próximo meio-dia.',
+  erroConexao: 'Não foi possível falar com o servidor. Confira sua internet.',
+  tentarDeNovo: 'Tentar de novo',
   verJogo: 'Ver o jogo',
   soGols: 'Só os gols',
   decisaoDoDia: 'Decisão do dia',
@@ -123,11 +154,9 @@ const pt: Textos = {
     aproveitou: 'O time criou menos, mas aproveitou as chances.',
     equilibrado: 'Jogo equilibrado, decidido nos detalhes.',
   },
-  avancarData: 'Avançar',
   saldo: (valor) => `Saldo: R$ ${valor}`,
   temporadaNumero: (n) => `Temporada ${n}`,
   titulosClube: 'Títulos do clube',
-  novaTemporada: 'Próxima temporada',
   assistente: 'Assistente ligado',
   assistenteTexto: 'Ele poupa cansados e repõe desfalques a cada jogo. Trocar um titular desliga o assistente.',
   penaltis: (clube) => `${clube} venceu nos pênaltis`,
@@ -135,19 +164,12 @@ const pt: Textos = {
   geral: 'Geral',
   emCasa: 'Em casa',
   foraDeCasa: 'Fora de casa',
-  jogarRodada: 'Jogar rodada',
-  simulando: 'Simulando...',
   ultimoJogo: 'Último jogo',
   posicaoAtual: (posicao, pontos) => `${posicao}º lugar · ${pontos} pts`,
   desfalques: (n) => (n === 1 ? '1 titular fora: o reserva entra sozinho.' : `${n} titulares fora: os reservas entram sozinhos.`),
   temporadaFim: 'Fim da temporada',
   campeao: (clube) => `${clube} é o campeão!`,
   suaPosicao: (posicao) => `Seu clube terminou em ${posicao}º lugar.`,
-  novaLiga: 'Nova liga',
-  apagarTitulo: 'Começar outra liga?',
-  apagarTexto: 'A liga atual será apagada.',
-  apagar: 'Apagar',
-  cancelar: 'Cancelar',
   formacao: 'Formação',
   estilo: 'Estilo de jogo',
   estilos: { defensivo: 'Defensivo', equilibrado: 'Equilibrado', ofensivo: 'Ofensivo' },
@@ -181,21 +203,41 @@ const en: Textos = {
   abaElenco: 'Squad',
   abaTabela: 'Table',
   novaLigaTitulo: 'Set up your league',
-  novaLigaTexto: 'Name your club. The other places go to computer clubs.',
+  novaLigaTexto: 'Name your club. Places without friends go to computer clubs.',
   nomeClube: 'Club name',
   nomeClubeExemplo: 'E.g. Riverside United',
   duracaoLiga: 'Length',
   duracoes: { torneio: '1 tournament (19 days)', temporada: 'Season (60 days)' },
   dificuldade: 'Difficulty',
   dificuldades: { facil: 'Easy', normal: 'Normal', dificil: 'Hard' },
-  iniciarLiga: 'Start season',
   erroNome: 'Use 3 to 24 characters for the club name.',
   diaHora: (dia, hora) => `Day ${dia} · ${hora}`,
   torneios: { 0: 'Finals', 1: 'Opening Tournament', 2: 'Middle Tournament', 3: 'Closing Tournament' },
   competicoes: { liga: 'League', copa: 'Cup', prata: 'Silver Cup', taca: 'Champions Trophy' },
   fases: { pontos: '', quartas: 'Quarter-final', semifinal: 'Semi-final', terceiro: 'Third place', final: 'Final' },
   semJogo: 'Your club has no match on this date.',
-  simularDia: 'Simulate the whole day',
+  criarLiga: 'Create league',
+  semLiga: 'Create a league or use an invite in the Club tab.',
+  entrarTitulo: 'Got an invite?',
+  entrarTexto: 'Enter the code your friend sent. You will take over a club in the league.',
+  codigoConvite: 'Invite code',
+  entrarLiga: 'Join league',
+  erroCodigo: 'Enter the 6-letter code.',
+  outraLiga: 'Create or join another league',
+  voltar: 'Back',
+  conviteTitulo: 'Invite your friends',
+  conviteTexto: (codigo) => `League code: ${codigo}. Each friend takes over a computer club.`,
+  compartilhar: 'Send invite',
+  mensagemConvite: (codigo) => `Join my league on Prancheta FC! Code: ${codigo}`,
+  tecnicos: (n) => (n === 1 ? '1 manager in the league' : `${n} managers in the league`),
+  iniciarLiga: 'Start the league',
+  iniciarAviso: 'The first round is at noon. Friends can still join afterwards.',
+  aguardandoDono: 'Waiting for the league creator to start it.',
+  comecaAoMeioDia: 'The league starts next noon. Get your team ready.',
+  proximoJogoEm: 'Matches play automatically at 12h, 18h and 21h.',
+  proximaTemporadaAviso: 'The next season starts next noon.',
+  erroConexao: 'Could not reach the server. Check your internet.',
+  tentarDeNovo: 'Try again',
   verJogo: 'View match',
   soGols: 'Goals only',
   decisaoDoDia: 'Decision of the day',
@@ -215,11 +257,9 @@ const en: Textos = {
     aproveitou: 'The team created less but took its chances.',
     equilibrado: 'A close match, decided by the details.',
   },
-  avancarData: 'Continue',
   saldo: (valor) => `Balance: ${valor}`,
   temporadaNumero: (n) => `Season ${n}`,
   titulosClube: 'Club honours',
-  novaTemporada: 'Next season',
   assistente: 'Assistant on',
   assistenteTexto: 'Rests tired players and covers absences every match. Swapping a starter turns it off.',
   penaltis: (clube) => `${clube} won on penalties`,
@@ -227,19 +267,12 @@ const en: Textos = {
   geral: 'Overall',
   emCasa: 'Home',
   foraDeCasa: 'Away',
-  jogarRodada: 'Play round',
-  simulando: 'Simulating...',
   ultimoJogo: 'Last match',
   posicaoAtual: (posicao, pontos) => `Position ${posicao} · ${pontos} pts`,
   desfalques: (n) => (n === 1 ? '1 starter out: a substitute steps in automatically.' : `${n} starters out: substitutes step in automatically.`),
   temporadaFim: 'End of season',
   campeao: (clube) => `${clube} are the champions!`,
   suaPosicao: (posicao) => `Your club finished in position ${posicao}.`,
-  novaLiga: 'New league',
-  apagarTitulo: 'Start another league?',
-  apagarTexto: 'The current league will be deleted.',
-  apagar: 'Delete',
-  cancelar: 'Cancel',
   formacao: 'Formation',
   estilo: 'Playing style',
   estilos: { defensivo: 'Defensive', equilibrado: 'Balanced', ofensivo: 'Attacking' },
@@ -273,21 +306,41 @@ const es: Textos = {
   abaElenco: 'Plantilla',
   abaTabela: 'Tabla',
   novaLigaTitulo: 'Arma tu liga',
-  novaLigaTexto: 'Ponle nombre a tu club. Las demás plazas son para clubes de la máquina.',
+  novaLigaTexto: 'Ponle nombre a tu club. Las plazas sin amigos son para clubes de la máquina.',
   nomeClube: 'Nombre del club',
   nomeClubeExemplo: 'Ej.: Unidos del Barrio',
   duracaoLiga: 'Duración',
   duracoes: { torneio: '1 torneo (19 días)', temporada: 'Temporada (60 días)' },
   dificuldade: 'Dificultad',
   dificuldades: { facil: 'Fácil', normal: 'Normal', dificil: 'Difícil' },
-  iniciarLiga: 'Empezar temporada',
   erroNome: 'Usa de 3 a 24 letras en el nombre del club.',
   diaHora: (dia, hora) => `Día ${dia} · ${hora}`,
   torneios: { 0: 'Finales', 1: 'Torneo Apertura', 2: 'Torneo Intermedio', 3: 'Torneo Clausura' },
   competicoes: { liga: 'Liga', copa: 'Copa', prata: 'Copa Plata', taca: 'Copa de Campeones' },
   fases: { pontos: '', quartas: 'Cuartos de final', semifinal: 'Semifinal', terceiro: 'Tercer puesto', final: 'Final' },
   semJogo: 'Tu club no juega en esta fecha.',
-  simularDia: 'Simular todo el día',
+  criarLiga: 'Crear liga',
+  semLiga: 'Crea una liga o entra con una invitación en la pestaña Club.',
+  entrarTitulo: '¿Tienes una invitación?',
+  entrarTexto: 'Escribe el código que te envió tu amigo. Asumirás un club de la liga.',
+  codigoConvite: 'Código de invitación',
+  entrarLiga: 'Entrar a la liga',
+  erroCodigo: 'Escribe el código de 6 letras.',
+  outraLiga: 'Crear o entrar a otra liga',
+  voltar: 'Volver',
+  conviteTitulo: 'Invita a tus amigos',
+  conviteTexto: (codigo) => `Código de la liga: ${codigo}. Cada amigo asume un club de la máquina.`,
+  compartilhar: 'Enviar invitación',
+  mensagemConvite: (codigo) => `¡Entra a mi liga en Prancheta FC! Código: ${codigo}`,
+  tecnicos: (n) => (n === 1 ? '1 entrenador en la liga' : `${n} entrenadores en la liga`),
+  iniciarLiga: 'Iniciar la liga',
+  iniciarAviso: 'La primera jornada será al mediodía. Los amigos aún pueden entrar después.',
+  aguardandoDono: 'Esperando a que quien creó la liga la inicie.',
+  comecaAoMeioDia: 'La liga empieza el próximo mediodía. Prepara tu equipo.',
+  proximoJogoEm: 'Los partidos se juegan solos a las 12h, 18h y 21h.',
+  proximaTemporadaAviso: 'La próxima temporada empieza el próximo mediodía.',
+  erroConexao: 'No se pudo conectar con el servidor. Revisa tu internet.',
+  tentarDeNovo: 'Intentar de nuevo',
   verJogo: 'Ver el partido',
   soGols: 'Solo goles',
   decisaoDoDia: 'Decisión del día',
@@ -307,11 +360,9 @@ const es: Textos = {
     aproveitou: 'El equipo creó menos, pero aprovechó sus ocasiones.',
     equilibrado: 'Partido parejo, decidido en los detalles.',
   },
-  avancarData: 'Avanzar',
   saldo: (valor) => `Saldo: ${valor}`,
   temporadaNumero: (n) => `Temporada ${n}`,
   titulosClube: 'Títulos del club',
-  novaTemporada: 'Próxima temporada',
   assistente: 'Asistente activado',
   assistenteTexto: 'Reserva a los cansados y cubre las bajas en cada partido. Cambiar un titular lo desactiva.',
   penaltis: (clube) => `${clube} ganó en los penales`,
@@ -319,19 +370,12 @@ const es: Textos = {
   geral: 'General',
   emCasa: 'En casa',
   foraDeCasa: 'Fuera de casa',
-  jogarRodada: 'Jugar jornada',
-  simulando: 'Simulando...',
   ultimoJogo: 'Último partido',
   posicaoAtual: (posicao, pontos) => `Puesto ${posicao} · ${pontos} pts`,
   desfalques: (n) => (n === 1 ? '1 titular fuera: el suplente entra solo.' : `${n} titulares fuera: los suplentes entran solos.`),
   temporadaFim: 'Fin de la temporada',
   campeao: (clube) => `¡${clube} es el campeón!`,
   suaPosicao: (posicao) => `Tu club terminó en el puesto ${posicao}.`,
-  novaLiga: 'Nueva liga',
-  apagarTitulo: '¿Empezar otra liga?',
-  apagarTexto: 'La liga actual se borrará.',
-  apagar: 'Borrar',
-  cancelar: 'Cancelar',
   formacao: 'Formación',
   estilo: 'Estilo de juego',
   estilos: { defensivo: 'Defensivo', equilibrado: 'Equilibrado', ofensivo: 'Ofensivo' },

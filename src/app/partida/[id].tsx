@@ -5,7 +5,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Aviso, Botao, Carregando, Chip, Escudo } from '../../componentes/ui';
 import { clubePorId } from '../../dominio/liga';
 import { explicarPartida } from '../../dominio/resumo';
-import type { Evento } from '../../dominio/tipos';
+import type { Evento, Partida as DadosPartida } from '../../dominio/tipos';
 import { useLiga } from '../../hooks/useLiga';
 import { t } from '../../i18n';
 import { cores, espaco } from '../../tema';
@@ -26,19 +26,28 @@ function narrar(e: Evento) {
 
 export default function Partida() {
   const { id, aoVivo } = useLocalSearchParams<{ id: string; aoVivo?: string }>();
-  const { pronta, liga, meuClube } = useLiga();
+  const { cliente, liga, meuClube } = useLiga();
   const [minuto, setMinuto] = useState(aoVivo === '1' ? 0 : FIM);
   const [soGols, setSoGols] = useState(false);
+  const [partida, setPartida] = useState<DadosPartida | null>(null);
+  const [falhou, setFalhou] = useState(false);
+
+  // A narração completa só vem do servidor quando a partida é aberta.
+  const ligaId = liga?.id;
+  useEffect(() => {
+    if (!cliente || !ligaId) return;
+    cliente.partida(ligaId, Number(id)).then(setPartida).catch(() => setFalhou(true));
+  }, [cliente, id, ligaId]);
 
   useEffect(() => {
-    if (minuto >= FIM) return;
+    if (!partida || minuto >= FIM) return;
     const relogio = setTimeout(() => setMinuto(minuto + 1), MS_POR_MINUTO);
     return () => clearTimeout(relogio);
-  }, [minuto]);
+  }, [minuto, partida]);
 
-  if (!pronta) return <Carregando />;
-  const partida = liga?.partidas.find((p) => p.id === Number(id));
-  if (!liga || !partida?.resultado) return <Aviso texto={t.partidaNaoEncontrada} />;
+  if (falhou) return <Aviso texto={t.partidaNaoEncontrada} />;
+  if (!liga || !partida) return <Carregando />;
+  if (!partida.resultado) return <Aviso texto={t.partidaNaoEncontrada} />;
 
   const { resultado } = partida;
   const casa = clubePorId(liga, partida.casaId);

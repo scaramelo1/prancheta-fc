@@ -3,6 +3,7 @@ import { after, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import type { AddressInfo } from 'node:net';
 
+import { ErroApi, criarCliente, criarConta } from '../../src/api/cliente.ts';
 import { indiceDaJanela, janelaDoMeioDia, proximoInicio } from '../agenda.ts';
 import { criarApi } from '../api.ts';
 import { BancoSqlite } from '../banco.ts';
@@ -215,5 +216,44 @@ describe('limite de contas', () => {
 
     await new Promise((pronto) => { api.close(pronto); });
     await banco.fechar();
+  });
+});
+
+describe('cliente do app', () => {
+  it('faz o caminho completo: conta, liga, convite, início, rodada e narração', async () => {
+    let agora = MEIO_DIA - HORA;
+    const banco = new BancoSqlite(':memory:');
+    const api = criarApi(banco, () => agora, 100);
+    await new Promise<void>((pronto) => { api.listen(0, '127.0.0.1', pronto); });
+    const base = `http://127.0.0.1:${(api.address() as AddressInfo).port}`;
+
+    const dono = criarCliente((await criarConta(base)).token, base);
+    const amigo = criarCliente((await criarConta(base)).token, base);
+
+    const criada = await dono.criarLiga('Clube do Dono', 'torneio', 'facil');
+    assert.equal(criada.codigo.length, 6);
+    const entrou = await amigo.entrar(criada.codigo, 'Amigos FC');
+    assert.equal(entrou.souDono, false);
+    await assert.rejects(amigo.iniciar(criada.id), (e: ErroApi) => e.status === 403);
+
+    assert.equal((await dono.iniciar(criada.id)).iniciada, true);
+    const clube = entrou.liga.clubes.find((c) => c.id === entrou.meuClubeId)!;
+    const salva = await amigo.salvarEscalacao(criada.id, { ...clube.escalacao!, estilo: 'ofensivo' }, false);
+    assert.equal(salva.liga.clubes.find((c) => c.id === salva.meuClubeId)!.assistente, false);
+
+    agora = MEIO_DIA;
+    await processarRodadas(banco, agora);
+    const visao = await amigo.liga(criada.id);
+    assert.equal(visao.liga.rodadaAtual, 2);
+    const jogo = visao.liga.partidas.find((p) => p.resultado && (p.casaId === visao.meuClubeId || p.foraId === visao.meuClubeId))!;
+    assert.ok((await amigo.partida(criada.id, jogo.id)).resultado);
+    assert.equal((await amigo.ligas())[0].tecnicos, 2);
+
+    await new Promise((pronto) => { api.close(pronto); });
+    await banco.fechar();
+  });
+
+  it('sem servidor, avisa com status 0', async () => {
+    await assert.rejects(criarConta('http://127.0.0.1:9'), (e: ErroApi) => e.status === 0);
   });
 });

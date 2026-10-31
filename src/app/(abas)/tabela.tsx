@@ -86,7 +86,7 @@ export default function Tabela() {
   const [vista, setVista] = useState<Vista>('liga');
 
   if (!pronta) return <Carregando />;
-  if (!liga || !meuClube) return <Aviso texto={t.novaLigaTexto} />;
+  if (!liga || !meuClube) return <Aviso texto={t.semLiga} />;
 
   // Nas finais não há torneio em andamento; mostra o último, o de encerramento.
   const torneio = torneioAtual(liga) || 3;

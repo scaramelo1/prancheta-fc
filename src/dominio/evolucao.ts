@@ -1,5 +1,6 @@
 import { combinarSementes, criarRng, inteiro } from './aleatorio.ts';
 import type { Rng } from './aleatorio.ts';
+import { melhorEscalacao } from './escalacao.ts';
 import { gerarNome } from './geracao.ts';
 import type { Clube, Jogador, Liga } from './tipos.ts';
 
@@ -63,9 +64,10 @@ export function evoluirClubes(liga: Liga): Clube[] {
       const evoluido = evoluir(rng, j);
       return seAposenta(rng, evoluido) ? revelarJovem(rng, ++ultimoId, evoluido) : evoluido;
     });
-    // Quem se aposentou pode estar na escalação salva; o jogo repõe, mas ela não pode guardar id inexistente.
+    // Quem se aposentou sai da escalação salva, mantendo a tática que o técnico escolheu.
     const ids = new Set(elenco.map((j) => j.id));
-    const completa = clube.escalacao?.titulares.every((t) => ids.has(t.jogadorId));
-    return { ...clube, elenco, escalacao: completa ? clube.escalacao : null };
+    const { escalacao } = clube;
+    if (!escalacao || escalacao.titulares.every((t) => ids.has(t.jogadorId))) return { ...clube, elenco };
+    return { ...clube, elenco, escalacao: melhorEscalacao({ ...clube, elenco }, escalacao.formacao, escalacao.estilo) };
   });
 }
