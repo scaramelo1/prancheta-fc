@@ -11,8 +11,8 @@ interface DadosFormacao {
 
 export const FORMACOES: Record<Formacao, DadosFormacao> = {
   '4-4-2': { def: 4, mei: 4, ata: 2, ataque: 0, meio: 0, defesa: 0 },
-  '4-3-3': { def: 4, mei: 3, ata: 3, ataque: 3, meio: -2, defesa: -1 },
-  '3-5-2': { def: 3, mei: 5, ata: 2, ataque: 1, meio: 3, defesa: -4 },
+  '4-3-3': { def: 4, mei: 3, ata: 3, ataque: 1.5, meio: -2, defesa: -2.5 },
+  '3-5-2': { def: 3, mei: 5, ata: 2, ataque: 1, meio: 3, defesa: -3.5 },
   '5-4-1': { def: 5, mei: 4, ata: 1, ataque: -4, meio: 0, defesa: 4 },
 };
 
@@ -37,7 +37,10 @@ export function vagasDaFormacao(formacao: Formacao): Posicao[] {
   return ['GOL', ...Array<Posicao>(def).fill('DEF'), ...Array<Posicao>(mei).fill('MEI'), ...Array<Posicao>(ata).fill('ATA')];
 }
 
-const porForca = (a: Jogador, b: Jogador) => b.forca - a.forca || a.id - b.id;
+/** Um jogador sem energia rende 30% menos. */
+export const forcaEfetiva = (j: Jogador) => j.forca * (0.7 + (0.3 * j.energia) / 100);
+
+const porForca = (a: Jogador, b: Jogador) => forcaEfetiva(b) - forcaEfetiva(a) || a.id - b.id;
 
 /** Completa as vagas abertas: primeiro quem é da posição, depois o melhor que sobrar. */
 function completar(elenco: Jogador[], vagas: Posicao[], fixos: Escalado[]): Escalado[] {
@@ -70,10 +73,11 @@ export function escalacaoDaMaquina(clube: Clube): Escalacao {
   return melhorEscalacao(clube, formacao, estilo);
 }
 
-/** Mantém a escolha do técnico e repõe quem está fora por lesão ou suspensão. */
+/** Com o assistente desligado, mantém a escolha do técnico e repõe só quem está fora. */
 export function escalacaoParaJogo(clube: Clube): Escalacao {
   if (clube.donoId === null) return escalacaoDaMaquina(clube);
   const atual = clube.escalacao ?? melhorEscalacao(clube, '4-4-2', 'equilibrado');
+  if (clube.assistente) return melhorEscalacao(clube, atual.formacao, atual.estilo);
   const aptos = new Set(clube.elenco.filter((j) => j.rodadasFora === 0).map((j) => j.id));
   const fixos = atual.titulares.filter((e) => aptos.has(e.jogadorId));
   return { ...atual, titulares: completar(clube.elenco, vagasDaFormacao(atual.formacao), fixos) };

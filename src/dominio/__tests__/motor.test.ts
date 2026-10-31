@@ -2,15 +2,31 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { gerarCalendario } from '../calendario.ts';
-import { escalacaoParaJogo, melhorEscalacao, trocarTitular, vagasDaFormacao } from '../escalacao.ts';
+import {
+  copaDaData, dataDaCopa, dataDaLiga, diaDaData, gerarCalendario, horarioDaData,
+} from '../calendario.ts';
+import { escalacaoParaJogo, forcaEfetiva, melhorEscalacao, trocarTitular, vagasDaFormacao } from '../escalacao.ts';
+import { evoluirClubes, folhaSalarial, premioDaLiga, salarioDe } from '../evolucao.ts';
 import { gerarSigla } from '../geracao.ts';
-import { calcularTabela, criarLiga, jogarRodada, tabelaDaLiga, temporadaEncerrada } from '../liga.ts';
+import {
+  calcularTabela, criarLiga, jogarRodada, novaTemporada, partidaDoClube, tabelaDaCompeticao, tabelaGeral, temporadaEncerrada, vencedorDaPartida,
+} from '../liga.ts';
 import { montarEquipe, simularPartida } from '../simulacao.ts';
-import type { Clube, Liga, Partida } from '../tipos.ts';
+import type { Clube, DuracaoLiga, Liga } from '../tipos.ts';
 
-const nova = (tamanho = 10, semente = 7): Liga =>
-  criarLiga('l', { nomeClube: 'Teste FC', donoId: 'eu', tamanho, dificuldade: 'normal', semente });
+const nova = (duracao: DuracaoLiga = 'torneio', semente = 7): Liga =>
+  criarLiga('l', { nomeClube: 'Teste FC', donoId: 'eu', dificuldade: 'normal', duracao, semente });
+
+function jogarAte(liga: Liga, data: number) {
+  let atual = liga;
+  while (!temporadaEncerrada(atual) && atual.rodadaAtual <= data) atual = jogarRodada(atual);
+  return atual;
+}
+
+const jogarTudo = (liga: Liga) => jogarAte(liga, Infinity);
+
+// Uma temporada completa leva alguns segundos: é jogada uma vez e usada por vários testes.
+const temporadaCompleta = jogarTudo(nova('temporada'));
 
 const comForca = (clube: Clube, forca: number): Clube => ({
   ...clube,
@@ -41,14 +57,13 @@ describe('calendário', () => {
 
 describe('criação da liga', () => {
   it('completa as vagas com clubes da máquina', () => {
-    const liga = nova(16);
-    assert.equal(liga.clubes.length, 16);
-    assert.equal(liga.clubes.filter((c) => c.donoId === null).length, 15);
-    assert.equal(liga.totalRodadas, 30);
+    const liga = nova();
+    assert.equal(liga.clubes.length, 20);
+    assert.equal(liga.clubes.filter((c) => c.donoId === null).length, 19);
   });
 
   it('não repete nomes de clubes nem ids de jogadores', () => {
-    const liga = nova(20);
+    const liga = nova();
     assert.equal(new Set(liga.clubes.map((c) => c.nome)).size, 20);
     const ids = liga.clubes.flatMap((c) => c.elenco.map((j) => j.id));
     assert.equal(new Set(ids).size, ids.length);
@@ -147,16 +162,192 @@ describe('simulação', () => {
   });
 });
 
-describe('temporada', () => {
-  it('joga todas as rodadas e fecha a tabela', () => {
-    let liga = nova();
-    while (!temporadaEncerrada(liga)) liga = jogarRodada(liga);
-    assert.ok(liga.partidas.every((p) => p.resultado));
-    const tabela = tabelaDaLiga(liga);
-    assert.ok(tabela.every((l) => l.jogos === 18));
-    assert.equal(tabela.reduce((s, l) => s + l.golsPro, 0), tabela.reduce((s, l) => s + l.golsContra, 0));
+describe('calendário da temporada', () => {
+  it('cada dia tem liga às 12h e às 18h e copa às 21h', () => {
+    assert.equal(dataDaLiga(1, 1), 1);
+    assert.equal(dataDaLiga(1, 2), 2);
+    assert.equal(dataDaCopa(1, 1), 3);
+    assert.equal(dataDaLiga(1, 3), 4);
+    assert.equal(dataDaLiga(1, 38), 56);
+    assert.equal(dataDaCopa(1, 19), 57);
+    assert.equal(dataDaLiga(2, 1), 58);
+    assert.deepEqual(copaDaData(60), { torneio: 2, rodada: 1 });
+    assert.equal(copaDaData(58), null);
+    assert.equal(horarioDaData(3), '21h');
   });
 
+  it('a temporada dura 60 dias', () => {
+    assert.equal(temporadaCompleta.totalRodadas, 174);
+    assert.equal(diaDaData(171), 57);
+    assert.equal(diaDaData(174), 60);
+    assert.equal(nova('torneio').totalRodadas, 57);
+  });
+
+  it('todos jogam a liga inteira: 38 jogos em cada torneio', () => {
+    for (const torneio of [1, 2, 3]) {
+      assert.ok(tabelaDaCompeticao(temporadaCompleta, 'liga', torneio).every((l) => l.jogos === 38));
+    }
+    assert.ok(tabelaGeral(temporadaCompleta).every((l) => l.jogos === 114));
+  });
+
+  it('todas as partidas foram jogadas e ninguém joga duas vezes na mesma data', () => {
+    assert.ok(temporadaCompleta.partidas.every((p) => p.resultado));
+    for (let data = 1; data <= 174; data++) {
+      const ids = temporadaCompleta.partidas.filter((p) => p.rodada === data).flatMap((p) => [p.casaId, p.foraId]);
+      assert.equal(new Set(ids).size, ids.length, `data ${data}`);
+    }
+  });
+});
+
+describe('copas', () => {
+  const liga = jogarTudo(nova('torneio'));
+  const copa = liga.partidas.filter((p) => p.competicao === 'copa');
+  const fase = (nome: string) => copa.filter((p) => p.fase === nome);
+
+  it('tem 13 rodadas de pontos, depois quartas, semifinais e final em ida e volta', () => {
+    assert.ok(tabelaDaCompeticao(liga, 'copa', 1).every((l) => l.jogos === 13));
+    assert.equal(fase('quartas').length, 8);
+    assert.equal(fase('semifinal').length, 4);
+    assert.equal(fase('final').length, 2);
+  });
+
+  it('só os 8 melhores vão ao mata-mata; os outros 12 jogam a Copa Prata', () => {
+    const top8 = tabelaDaCompeticao(liga, 'copa', 1).slice(0, 8).map((l) => l.clubeId).sort();
+    assert.deepEqual([...new Set(fase('quartas').flatMap((p) => [p.casaId, p.foraId]))].sort(), top8);
+    const prata = tabelaDaCompeticao(liga, 'prata', 1);
+    assert.equal(prata.length, 12);
+    assert.ok(prata.every((l) => l.jogos === 6));
+    assert.ok(prata.every((l) => !top8.includes(l.clubeId)));
+  });
+
+  it('avança quem vence no agregado, ou nos pênaltis', () => {
+    for (const volta of copa.filter((p) => p.decisiva)) {
+      const ida = copa.find((p) => p.id === volta.idaId)!;
+      const casa = volta.resultado!.golsCasa + ida.resultado!.golsFora;
+      const fora = volta.resultado!.golsFora + ida.resultado!.golsCasa;
+      const vencedor = vencedorDaPartida(liga, volta);
+      if (casa > fora) assert.equal(vencedor, volta.casaId);
+      else if (fora > casa) assert.equal(vencedor, volta.foraId);
+      else assert.ok([volta.casaId, volta.foraId].includes(volta.resultado!.vencedorPenaltis!));
+    }
+  });
+
+  it('registra os campeões do torneio e encerra sem Taça na liga curta', () => {
+    assert.deepEqual(liga.titulos.map((t) => t.competicao).sort(), ['copa', 'liga', 'prata']);
+    assert.ok(!liga.partidas.some((p) => p.competicao === 'taca'));
+    assert.equal(temporadaEncerrada(liga), true);
+  });
+});
+
+describe('Taça dos Campeões', () => {
+  const taca = temporadaCompleta.partidas.filter((p) => p.competicao === 'taca');
+
+  it('tem semifinais, terceiro lugar e final, com um campeão', () => {
+    assert.deepEqual(taca.map((p) => p.fase), ['semifinal', 'semifinal', 'terceiro', 'final']);
+    const titulo = temporadaCompleta.titulos.find((t) => t.competicao === 'taca')!;
+    assert.equal(titulo.clubeId, vencedorDaPartida(temporadaCompleta, taca[3]));
+  });
+
+  it('reúne 4 clubes, incluindo os campeões das ligas', () => {
+    const clubes = new Set(taca.slice(0, 2).flatMap((p) => [p.casaId, p.foraId]));
+    assert.equal(clubes.size, 4);
+    for (const t of temporadaCompleta.titulos.filter((x) => x.competicao === 'liga')) assert.ok(clubes.has(t.clubeId));
+  });
+});
+
+describe('cansaço', () => {
+  it('energia baixa reduz o rendimento', () => {
+    const [clube] = nova().clubes;
+    const j = clube.elenco[0];
+    assert.equal(forcaEfetiva({ ...j, energia: 100 }), j.forca);
+    assert.ok(forcaEfetiva({ ...j, energia: 0 }) < j.forca * 0.71);
+  });
+
+  it('titular cansa mais do que recupera, e quem descansa recupera', () => {
+    const inicio = nova();
+    inicio.clubes[0].assistente = false;
+    const titular = inicio.clubes[0].escalacao!.titulares[5].jogadorId;
+    const reserva = inicio.clubes[0].elenco.find((j) => !inicio.clubes[0].escalacao!.titulares.some((t) => t.jogadorId === j.id))!;
+    const depois = jogarAte(inicio, 12).clubes[0].elenco;
+    const energiaTitular = depois.find((j) => j.id === titular)!;
+    assert.ok(energiaTitular.energia < 60 || energiaTitular.rodadasFora > 0, `energia ${energiaTitular.energia}`);
+    assert.equal(depois.find((j) => j.id === reserva.id)!.energia, 100);
+  });
+
+  it('o assistente poupa os cansados', () => {
+    const [clube] = nova().clubes;
+    const titular = clube.escalacao!.titulares.find((t) => t.posicao === 'ATA')!;
+    const cansado = {
+      ...clube,
+      elenco: clube.elenco.map((j) => (j.id === titular.jogadorId ? { ...j, energia: 0 } : j)),
+    };
+    assert.ok(!escalacaoParaJogo(cansado).titulares.some((t) => t.jogadorId === titular.jogadorId));
+    assert.ok(escalacaoParaJogo({ ...cansado, assistente: false }).titulares.some((t) => t.jogadorId === titular.jogadorId));
+  });
+
+  it('com o assistente, o time rende mais do que sem rodízio', () => {
+    let comRodizio = 0;
+    let semRodizio = 0;
+    for (let semente = 1; semente <= 6; semente++) {
+      const base = nova('torneio', semente);
+      comRodizio += tabelaDaCompeticao(jogarTudo(base), 'liga', 1).find((l) => l.clubeId === 0)!.pontos;
+      const manual = structuredClone(base);
+      manual.clubes[0].assistente = false;
+      semRodizio += tabelaDaCompeticao(jogarTudo(manual), 'liga', 1).find((l) => l.clubeId === 0)!.pontos;
+    }
+    assert.ok(comRodizio > semRodizio, `${comRodizio} x ${semRodizio}`);
+  });
+});
+
+describe('lesões e suspensões', () => {
+  it('lesão tira de 3 a 12 jogos e vermelho tira 1', () => {
+    const eventos = temporadaCompleta.partidas.flatMap((p) => p.resultado!.eventos);
+    const lesoes = eventos.filter((e) => e.tipo === 'lesao');
+    assert.ok(lesoes.length > 0);
+    assert.ok(lesoes.every((e) => e.rodadasFora! >= 3 && e.rodadasFora! <= 12));
+    assert.ok(eventos.filter((e) => e.tipo === 'vermelho').every((e) => e.rodadasFora === 1));
+  });
+
+  it('quem está fora não entra em campo e o contador nunca fica negativo', () => {
+    let liga = nova();
+    while (!temporadaEncerrada(liga)) {
+      const anterior = liga;
+      liga = jogarRodada(liga);
+      const fora = new Set(anterior.clubes.flatMap((c) => c.elenco.filter((j) => j.rodadasFora > 0).map((j) => j.id)));
+      for (const partida of liga.partidas.filter((p) => p.rodada === anterior.rodadaAtual)) {
+        for (const e of partida.resultado!.eventos) assert.ok(!fora.has(e.jogadorId), 'jogador fora entrou em campo');
+      }
+      assert.ok(liga.clubes.flatMap((c) => c.elenco).every((j) => j.rodadasFora >= 0));
+    }
+  });
+});
+
+describe('dinheiro', () => {
+  it('salário sobe com a força e o prêmio cai com a posição', () => {
+    const [clube] = nova().clubes;
+    const j = clube.elenco[0];
+    assert.ok(salarioDe({ ...j, forca: 80 }) > 2 * salarioDe({ ...j, forca: 60 }));
+    assert.ok(premioDaLiga(1) > premioDaLiga(2));
+    assert.ok(premioDaLiga(20) > 0);
+  });
+
+  it('cobra a folha a cada 7 dias e paga bilheteria ao mandante', () => {
+    const inicio = nova();
+    const depois = jogarAte(inicio, 21);
+    for (const clube of depois.clubes) {
+      const mandos = depois.partidas.filter((p) => p.resultado && p.casaId === clube.id).length;
+      const original = inicio.clubes.find((c) => c.id === clube.id)!;
+      assert.equal(clube.saldo, original.saldo + mandos * 30_000 - folhaSalarial(original));
+    }
+  });
+
+  it('o clube mediano não quebra em uma temporada', () => {
+    const saldos = temporadaCompleta.clubes.map((c) => c.saldo).sort((a, b) => a - b);
+    assert.ok(saldos[10] > 0, `saldo mediano ${saldos[10]}`);
+  });
+});
+
+describe('temporada', () => {
   it('jogarRodada não altera a liga original e é determinístico', () => {
     const liga = nova();
     const antes = JSON.stringify(liga);
@@ -165,30 +356,46 @@ describe('temporada', () => {
     assert.deepEqual(x, jogarRodada(liga));
   });
 
-  it('expulso ou lesionado perde as rodadas seguintes e depois volta', () => {
-    let liga = nova(20);
-    while (!temporadaEncerrada(liga)) {
-      const anterior = liga;
-      liga = jogarRodada(liga);
-      const rodada = anterior.rodadaAtual;
-      const foraAntes = new Set(anterior.clubes.flatMap((c) => c.elenco.filter((j) => j.rodadasFora > 0).map((j) => j.id)));
-      for (const partida of liga.partidas.filter((p) => p.rodada === rodada)) {
-        for (const e of partida.resultado!.eventos) assert.ok(!foraAntes.has(e.jogadorId), 'jogador fora entrou em campo');
-      }
-      const negativos = liga.clubes.flatMap((c) => c.elenco).filter((j) => j.rodadasFora < 0);
-      assert.equal(negativos.length, 0);
-    }
+  it('não simula depois do fim nem recomeça antes dele', () => {
+    assert.equal(jogarRodada(temporadaCompleta), temporadaCompleta);
+    const liga = nova();
+    assert.equal(novaTemporada(liga), liga);
   });
 
-  it('não simula depois do fim', () => {
-    let liga = nova();
-    while (!temporadaEncerrada(liga)) liga = jogarRodada(liga);
-    assert.equal(jogarRodada(liga), liga);
+  it('a nova temporada mantém saldo e títulos e recomeça o calendário', () => {
+    const seguinte = novaTemporada(temporadaCompleta);
+    assert.equal(seguinte.temporada, 2);
+    assert.equal(seguinte.rodadaAtual, 1);
+    assert.equal(seguinte.titulos.length, temporadaCompleta.titulos.length);
+    assert.equal(seguinte.clubes[0].saldo, temporadaCompleta.clubes[0].saldo);
+    assert.ok(seguinte.partidas.every((p) => !p.resultado));
+    assert.ok(partidaDoClube(seguinte, 1, 0));
+  });
+
+  it('os jogadores envelhecem, e quem se aposenta dá lugar a um jovem', () => {
+    const liga = nova();
+    for (const j of liga.clubes[0].elenco) j.idade = 38;
+    liga.clubes[0].assistente = false;
+    const [clube] = evoluirClubes(liga);
+    assert.equal(clube.elenco.length, 22);
+    assert.ok(clube.elenco.every((j) => j.idade <= 19 && j.potencial >= j.forca));
+    assert.equal(escalacaoParaJogo(clube).titulares.length, 11);
+    const ids = evoluirClubes(liga).flatMap((c) => c.elenco.map((j) => j.id));
+    assert.equal(new Set(ids).size, ids.length);
+  });
+
+  it('jovem evolui até o potencial e veterano cai', () => {
+    const liga = nova();
+    Object.assign(liga.clubes[0].elenco[0], { idade: 18, forca: 50, potencial: 51 });
+    Object.assign(liga.clubes[0].elenco[1], { idade: 32, forca: 70, potencial: 70 });
+    const { elenco } = evoluirClubes(liga)[0];
+    assert.equal(elenco[0].forca, 51);
+    assert.ok(elenco[1].forca < 70 || elenco[1].idade < 20);
   });
 
   it('desempata por vitórias e depois por saldo', () => {
     const r = (golsCasa: number, golsFora: number) => ({ golsCasa, golsFora, posseCasa: 50, chancesCasa: 0, chancesFora: 0, eventos: [] });
-    const p = (casaId: number, foraId: number, g1: number, g2: number): Partida => ({ id: 1, rodada: 1, casaId, foraId, resultado: r(g1, g2) });
+    const p = (casaId: number, foraId: number, g1: number, g2: number) => ({ casaId, foraId, resultado: r(g1, g2) });
     const tabela = calcularTabela([1, 2, 3], [p(1, 3, 1, 0), p(2, 3, 5, 0)]);
     assert.deepEqual(tabela.map((l) => l.clubeId), [2, 1, 3]);
   });

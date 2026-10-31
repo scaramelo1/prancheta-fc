@@ -44,9 +44,11 @@ export default function Partida() {
   const lances = resultado.eventos.filter((e) => e.minuto <= minuto);
   const gols = (clubeId: number) => lances.filter((e) => e.tipo === 'gol' && e.clubeId === clubeId).length;
   const encerrada = minuto >= FIM;
+  const titulo = [t.competicoes[partida.competicao], t.fases[partida.fase]].filter(Boolean).join(' · ');
 
   return (
     <ScrollView contentContainerStyle={estilos.tela}>
+      <Text style={estilos.competicao}>{titulo}</Text>
       <View style={estilos.placar}>
         <View style={estilos.lado}>
           <Escudo clube={casa} tamanho={56} />
@@ -64,6 +66,9 @@ export default function Partida() {
 
       {encerrada ? (
         <View style={estilos.cartao}>
+          {resultado.vencedorPenaltis !== undefined && (
+            <Text style={estilos.penaltis}>{t.penaltis(clubePorId(liga, resultado.vencedorPenaltis).nome)}</Text>
+          )}
           <View style={estilos.estatistica}>
             <Text style={estilos.valor}>{resultado.posseCasa}%</Text>
             <Text style={estilos.rotulo}>{t.posse}</Text>
@@ -99,6 +104,8 @@ export default function Partida() {
 const estilos = StyleSheet.create({
   tela: { padding: espaco.m, gap: espaco.m },
   flex: { flex: 1 },
+  competicao: { color: cores.destaque, fontSize: 13, fontWeight: '700', textAlign: 'center' },
+  penaltis: { color: cores.destaque, fontSize: 14, fontWeight: '700', textAlign: 'center' },
   placar: { flexDirection: 'row', alignItems: 'center' },
   lado: { flex: 1, alignItems: 'center', gap: 6 },
   centro: { alignItems: 'center', paddingHorizontal: espaco.p, minWidth: 104 },

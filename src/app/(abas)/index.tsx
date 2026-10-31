@@ -4,13 +4,16 @@ import { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Botao, Carregando, Chip, Escudo } from '../../componentes/ui';
-import { clubePorId, partidaDoClube, tabelaDaLiga, temporadaEncerrada } from '../../dominio/liga';
-import type { Clube, Dificuldade, Liga } from '../../dominio/tipos';
+import { diaDaData, horarioDaData } from '../../dominio/calendario';
+import {
+  clubePorId, partidaDoClube, tabelaDaCompeticao, tabelaGeral, temporadaEncerrada, torneioAtual, ultimaPartidaDoClube,
+} from '../../dominio/liga';
+import type { Clube, Dificuldade, DuracaoLiga, Liga, Partida } from '../../dominio/tipos';
 import { useLiga } from '../../hooks/useLiga';
 import { t } from '../../i18n';
 import { cores, espaco } from '../../tema';
 
-const TAMANHOS = [10, 16, 20];
+const DURACOES: DuracaoLiga[] = ['temporada', 'torneio'];
 const DIFICULDADES: Dificuldade[] = ['facil', 'normal', 'dificil'];
 
 const abrirPartida = (id: number, aoVivo?: boolean) =>
@@ -19,7 +22,7 @@ const abrirPartida = (id: number, aoVivo?: boolean) =>
 function NovaLiga() {
   const { iniciar } = useLiga();
   const [nome, setNome] = useState('');
-  const [tamanho, setTamanho] = useState(16);
+  const [duracao, setDuracao] = useState<DuracaoLiga>('temporada');
   const [dificuldade, setDificuldade] = useState<Dificuldade>('normal');
   const [erro, setErro] = useState(false);
 
@@ -29,7 +32,7 @@ function NovaLiga() {
       setErro(true);
       return;
     }
-    iniciar(limpo, tamanho, dificuldade);
+    iniciar(limpo, duracao, dificuldade);
   };
 
   return (
@@ -53,10 +56,10 @@ function NovaLiga() {
       />
       {erro && <Text style={estilos.erro}>{t.erroNome}</Text>}
 
-      <Text style={estilos.rotulo}>{t.tamanhoLiga}</Text>
+      <Text style={estilos.rotulo}>{t.duracaoLiga}</Text>
       <View style={estilos.linhaChips}>
-        {TAMANHOS.map((n) => (
-          <Chip key={n} texto={t.clubes(n)} ativo={tamanho === n} aoTocar={() => setTamanho(n)} />
+        {DURACOES.map((d) => (
+          <Chip key={d} texto={t.duracoes[d]} ativo={duracao === d} aoTocar={() => setDuracao(d)} />
         ))}
       </View>
 
@@ -90,20 +93,25 @@ function Confronto({ casa, fora, placar }: { casa: Clube; fora: Clube; placar: s
   );
 }
 
+const nomeDaPartida = (p: Partida) =>
+  [t.competicoes[p.competicao], t.fases[p.fase]].filter(Boolean).join(' · ');
+
 function Painel({ liga, clube }: { liga: Liga; clube: Clube }) {
-  const { jogar, apagar } = useLiga();
-  const tabela = tabelaDaLiga(liga);
+  const { jogar, apagar, proximaTemporada } = useLiga();
+  const torneio = torneioAtual(liga);
+  const tabela = torneio > 0 ? tabelaDaCompeticao(liga, 'liga', torneio) : tabelaGeral(liga);
+  const geral = tabelaGeral(liga);
   const posicao = tabela.findIndex((l) => l.clubeId === clube.id) + 1;
   const encerrada = temporadaEncerrada(liga);
   const proxima = encerrada ? undefined : partidaDoClube(liga, liga.rodadaAtual, clube.id);
-  const ultima = liga.rodadaAtual > 1 ? partidaDoClube(liga, liga.rodadaAtual - 1, clube.id) : undefined;
+  const ultima = ultimaPartidaDoClube(liga, clube.id);
+  const titulos = liga.titulos.filter((x) => x.clubeId === clube.id);
   const foraIds = new Set(clube.elenco.filter((j) => j.rodadasFora > 0).map((j) => j.id));
-  const desfalques = clube.escalacao?.titulares.filter((e) => foraIds.has(e.jogadorId)).length ?? 0;
+  const desfalques = clube.assistente ? 0 : (clube.escalacao?.titulares.filter((e) => foraIds.has(e.jogadorId)).length ?? 0);
 
   const jogarRodada = () => {
-    const nova = jogar();
-    const partida = nova && proxima ? nova.partidas.find((p) => p.id === proxima.id) : undefined;
-    if (partida) abrirPartida(partida.id, true);
+    jogar();
+    if (proxima) abrirPartida(proxima.id, true);
   };
 
   const novaLiga = () => Alert.alert(t.apagarTitulo, t.apagarTexto, [
@@ -118,37 +126,59 @@ function Painel({ liga, clube }: { liga: Liga; clube: Clube }) {
         <View style={estilos.flex}>
           <Text style={estilos.titulo} numberOfLines={1}>{clube.nome}</Text>
           <Text style={estilos.suave}>{t.posicaoAtual(posicao, tabela[posicao - 1].pontos)}</Text>
+          <Text style={estilos.suave}>{t.saldo(clube.saldo.toLocaleString())}</Text>
         </View>
       </View>
 
       {encerrada && (
         <View style={estilos.cartao}>
           <Text style={estilos.rotuloCartao}>{t.temporadaFim}</Text>
-          <Text style={estilos.campeao}>{t.campeao(clubePorId(liga, tabela[0].clubeId).nome)}</Text>
-          <Text style={estilos.suave}>{t.suaPosicao(posicao)}</Text>
+          <Text style={estilos.campeao}>{t.campeao(liga.titulos[liga.titulos.length - 1].nomeClube)}</Text>
+          <Text style={estilos.suave}>{t.suaPosicao(geral.findIndex((l) => l.clubeId === clube.id) + 1)}</Text>
+          <Botao texto={t.novaTemporada} aoTocar={proximaTemporada} />
         </View>
       )}
 
-      {proxima && (
+      {!encerrada && (
         <View style={estilos.cartao}>
           <Text style={estilos.rotuloCartao}>
-            {t.rodadaDe(liga.rodadaAtual, liga.totalRodadas)} · {proxima.casaId === clube.id ? t.emCasa : t.foraDeCasa}
+            {t.temporadaNumero(liga.temporada)} · {t.torneios[torneio]} · {t.diaHora(diaDaData(liga.rodadaAtual), horarioDaData(liga.rodadaAtual))}
           </Text>
-          <Confronto casa={clubePorId(liga, proxima.casaId)} fora={clubePorId(liga, proxima.foraId)} placar={t.aguardando} />
+          {proxima ? (
+            <>
+              <Text style={estilos.suave}>
+                {nomeDaPartida(proxima)} · {proxima.casaId === clube.id ? t.emCasa : t.foraDeCasa}
+              </Text>
+              <Confronto casa={clubePorId(liga, proxima.casaId)} fora={clubePorId(liga, proxima.foraId)} placar={t.aguardando} />
+            </>
+          ) : (
+            <Text style={estilos.suave}>{t.semJogo}</Text>
+          )}
           {desfalques > 0 && <Text style={estilos.alerta}>{t.desfalques(desfalques)}</Text>}
-          <Botao texto={t.jogarRodada} aoTocar={jogarRodada} />
+          <Botao texto={proxima ? t.jogarRodada : t.avancarData} aoTocar={jogarRodada} />
         </View>
       )}
 
       {ultima?.resultado && (
         <View style={estilos.cartao}>
-          <Text style={estilos.rotuloCartao}>{t.ultimoJogo}</Text>
+          <Text style={estilos.rotuloCartao}>{t.ultimoJogo} · {nomeDaPartida(ultima)}</Text>
           <Confronto
             casa={clubePorId(liga, ultima.casaId)}
             fora={clubePorId(liga, ultima.foraId)}
             placar={`${ultima.resultado.golsCasa} x ${ultima.resultado.golsFora}`}
           />
           <Botao secundario texto={t.fimDeJogo} aoTocar={() => abrirPartida(ultima.id)} />
+        </View>
+      )}
+
+      {titulos.length > 0 && (
+        <View style={estilos.cartao}>
+          <Text style={estilos.rotuloCartao}>{t.titulosClube}</Text>
+          {titulos.map((x, i) => (
+            <Text key={i} style={estilos.suave}>
+              {t.temporadaNumero(x.temporada)} · {t.competicoes[x.competicao]}{x.torneio > 0 ? ` · ${t.torneios[x.torneio]}` : ''}
+            </Text>
+          ))}
         </View>
       )}
 

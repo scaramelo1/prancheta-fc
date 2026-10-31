@@ -46,16 +46,25 @@ export function gerarSigla(nome: string) {
   return sigla.toUpperCase();
 }
 
+export const CLUBES_POR_LIGA = 20;
+const SALDO_INICIAL = 2_000_000;
+
+export const gerarNome = (rng: Rng) => `${escolher(rng, NOMES)} ${escolher(rng, SOBRENOMES)}`;
+
 function gerarElenco(rng: Rng, proximoId: () => number, forcaBase: number, jovem: boolean): Jogador[] {
   const elenco: Jogador[] = [];
   for (const [posicao, quantidade] of ELENCO) {
     for (let i = 0; i < quantidade; i++) {
+      const idade = jovem ? inteiro(rng, 17, 25) : inteiro(rng, 19, 35);
+      const forca = Math.max(30, Math.min(95, forcaBase + inteiro(rng, -8, 8)));
       elenco.push({
         id: proximoId(),
-        nome: `${escolher(rng, NOMES)} ${escolher(rng, SOBRENOMES)}`,
+        nome: gerarNome(rng),
         posicao,
-        idade: jovem ? inteiro(rng, 17, 25) : inteiro(rng, 19, 35),
-        forca: Math.max(30, Math.min(95, forcaBase + inteiro(rng, -8, 8))),
+        idade,
+        forca,
+        potencial: idade <= 23 ? Math.min(95, forca + inteiro(rng, 2, 14)) : forca,
+        energia: 100,
         rodadasFora: 0,
       });
     }
@@ -66,13 +75,12 @@ function gerarElenco(rng: Rng, proximoId: () => number, forcaBase: number, jovem
 export interface OpcoesClubes {
   nomeClube: string;
   donoId: string;
-  tamanho: number;
   dificuldade: Dificuldade;
   semente: number;
 }
 
 /** O humano sempre é o clube 0; as outras vagas viram clubes da máquina, do mais fraco ao mais forte. */
-export function gerarClubes({ nomeClube, donoId, tamanho, dificuldade, semente }: OpcoesClubes): Clube[] {
+export function gerarClubes({ nomeClube, donoId, dificuldade, semente }: OpcoesClubes): Clube[] {
   const rng = criarRng(combinarSementes(semente, 1));
   let ultimoId = 0;
   const proximoId = () => ++ultimoId;
@@ -89,9 +97,11 @@ export function gerarClubes({ nomeClube, donoId, tamanho, dificuldade, semente }
     personalidade: null,
     elenco: gerarElenco(rng, proximoId, FORCA_HUMANO, false),
     escalacao: null,
+    assistente: true,
+    saldo: SALDO_INICIAL,
   }];
 
-  const maquinas = tamanho - 1;
+  const maquinas = CLUBES_POR_LIGA - 1;
   for (let i = 0; i < maquinas; i++) {
     const nome = `${escolher(rng, PREFIXOS)} ${cidades[i]}`;
     const personalidade = PERSONALIDADES[i % PERSONALIDADES.length];
@@ -105,6 +115,8 @@ export function gerarClubes({ nomeClube, donoId, tamanho, dificuldade, semente }
       personalidade,
       elenco: gerarElenco(rng, proximoId, Math.round(forca), personalidade === 'formador'),
       escalacao: null,
+      assistente: true,
+      saldo: SALDO_INICIAL,
     });
   }
   return clubes;

@@ -1,11 +1,11 @@
 import { combinarSementes, criarRng, escolherPonderado, inteiro } from './aleatorio.ts';
 import type { Rng } from './aleatorio.ts';
-import { ESTILOS, FORMACOES } from './escalacao.ts';
+import { ESTILOS, FORMACOES, forcaEfetiva } from './escalacao.ts';
 import type { Clube, Escalacao, Evento, Jogador, Posicao, Resultado } from './tipos.ts';
 
 const MINUTOS = 90;
 const PROB_CHANCE = 0.27;
-const CONVERSAO_BASE = 0.09;
+const CONVERSAO_BASE = 0.082;
 const ESCALA_CHANCE = 24;
 const ESCALA_POSSE = 18;
 const MANDO = 2.5;
@@ -40,7 +40,7 @@ const media = (valores: number[]) => valores.reduce((a, b) => a + b, 0) / (valor
 export function montarEquipe(clube: Clube, escalacao: Escalacao): Equipe {
   const emCampo = escalacao.titulares.map(({ jogadorId, posicao }) => {
     const jogador = clube.elenco.find((j) => j.id === jogadorId) as Jogador;
-    const forca = jogador.forca * (jogador.posicao === posicao ? 1 : PENALIDADE_FORA_DE_POSICAO);
+    const forca = forcaEfetiva(jogador) * (jogador.posicao === posicao ? 1 : PENALIDADE_FORA_DE_POSICAO);
     return { jogador, posicao, forca };
   });
   const linha = (posicao: Posicao) => media(emCampo.filter((e) => e.posicao === posicao).map((e) => e.forca));
@@ -80,8 +80,11 @@ function jogarLance(rng: Rng, minuto: number, ataca: Equipe, defende: Equipe, bo
 }
 
 function incidente(rng: Rng, minuto: number, equipe: Equipe, eventos: Evento[]) {
+  // Time cansado se machuca mais: sem energia, o risco de lesão triplica.
+  const energia = media(equipe.emCampo.map((e) => e.jogador.energia));
+  const probLesao = PROB_LESAO * (1 + (2 * (100 - energia)) / 100);
   const sorte = rng();
-  if (sorte >= PROB_AMARELO + PROB_VERMELHO + PROB_LESAO) return;
+  if (sorte >= PROB_AMARELO + PROB_VERMELHO + probLesao) return;
 
   const naoGoleiros = equipe.emCampo.filter((e) => e.posicao !== 'GOL');
   const alvo = naoGoleiros[inteiro(rng, 0, naoGoleiros.length - 1)];
@@ -97,7 +100,7 @@ function incidente(rng: Rng, minuto: number, equipe: Equipe, eventos: Evento[]) 
     equipe.expulsos += 1;
     eventos.push({ ...base, tipo: 'vermelho', rodadasFora: 1 });
   } else {
-    eventos.push({ ...base, tipo: 'lesao', rodadasFora: inteiro(rng, 1, 4) });
+    eventos.push({ ...base, tipo: 'lesao', rodadasFora: inteiro(rng, 3, 12) });
   }
 }
 

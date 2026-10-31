@@ -3,8 +3,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { ReactNode } from 'react';
 
 import { apagarLigas, carregarLiga, salvarLiga } from '../db/repositorio';
-import { clubeDoDono, criarLiga, jogarRodada } from '../dominio/liga';
-import type { Clube, Dificuldade, Escalacao, Liga } from '../dominio/tipos';
+import { clubeDoDono, criarLiga, jogarRodada, novaTemporada } from '../dominio/liga';
+import type { Clube, Dificuldade, DuracaoLiga, Escalacao, Liga } from '../dominio/tipos';
 
 /** Sem login por enquanto: o único humano é o dono do aparelho. */
 const DONO_LOCAL = 'local';
@@ -13,9 +13,10 @@ interface ValorLiga {
   pronta: boolean;
   liga: Liga | null;
   meuClube: Clube | null;
-  iniciar: (nomeClube: string, tamanho: number, dificuldade: Dificuldade) => void;
-  salvarEscalacao: (escalacao: Escalacao) => void;
+  iniciar: (nomeClube: string, duracao: DuracaoLiga, dificuldade: Dificuldade) => void;
+  salvarEscalacao: (escalacao: Escalacao, assistente: boolean) => void;
   jogar: () => Liga | null;
+  proximaTemporada: () => void;
   apagar: () => void;
 }
 
@@ -38,16 +39,16 @@ export function ProvedorLiga({ children }: { children: ReactNode }) {
     salvarLiga(db, nova);
   }, [db]);
 
-  const iniciar = useCallback((nomeClube: string, tamanho: number, dificuldade: Dificuldade) => {
+  const iniciar = useCallback((nomeClube: string, duracao: DuracaoLiga, dificuldade: Dificuldade) => {
     const semente = Math.floor(Math.random() * 2 ** 31);
-    atualizar(criarLiga(String(semente), { nomeClube, donoId: DONO_LOCAL, tamanho, dificuldade, semente }));
+    atualizar(criarLiga(String(semente), { nomeClube, donoId: DONO_LOCAL, dificuldade, duracao, semente }));
   }, [atualizar]);
 
-  const salvarEscalacao = useCallback((escalacao: Escalacao) => {
+  const salvarEscalacao = useCallback((escalacao: Escalacao, assistente: boolean) => {
     if (!liga) return;
     atualizar({
       ...liga,
-      clubes: liga.clubes.map((c) => (c.donoId === DONO_LOCAL ? { ...c, escalacao } : c)),
+      clubes: liga.clubes.map((c) => (c.donoId === DONO_LOCAL ? { ...c, escalacao, assistente } : c)),
     });
   }, [atualizar, liga]);
 
@@ -56,6 +57,10 @@ export function ProvedorLiga({ children }: { children: ReactNode }) {
     const nova = jogarRodada(liga);
     atualizar(nova);
     return nova;
+  }, [atualizar, liga]);
+
+  const proximaTemporada = useCallback(() => {
+    if (liga) atualizar(novaTemporada(liga));
   }, [atualizar, liga]);
 
   const apagar = useCallback(() => {
@@ -70,8 +75,9 @@ export function ProvedorLiga({ children }: { children: ReactNode }) {
     iniciar,
     salvarEscalacao,
     jogar,
+    proximaTemporada,
     apagar,
-  }), [apagar, iniciar, jogar, liga, pronta, salvarEscalacao]);
+  }), [apagar, iniciar, jogar, liga, pronta, proximaTemporada, salvarEscalacao]);
 
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>;
 }

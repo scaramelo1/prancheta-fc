@@ -32,7 +32,9 @@ function LinhaJogador({
       <View style={estilos.flex}>
         <Text style={estilos.nome} numberOfLines={1}>{jogador.nome}</Text>
         <Text style={jogador.rodadasFora > 0 ? estilos.fora : estilos.detalhe}>
-          {jogador.rodadasFora > 0 ? t.rodadasFora(jogador.rodadasFora) : t.idadeAnos(jogador.idade)}
+          {jogador.rodadasFora > 0
+            ? t.rodadasFora(jogador.rodadasFora)
+            : `${t.idadeAnos(jogador.idade)} · ${t.energia(jogador.energia)}`}
         </Text>
       </View>
       <Text style={estilos.forca}>{jogador.forca}</Text>
@@ -57,12 +59,13 @@ export default function Elenco() {
     setTrocando(null);
     salvarEscalacao(
       formacao === escalacao.formacao ? { ...escalacao, estilo } : melhorEscalacao(clube, formacao, estilo),
+      clube.assistente,
     );
   };
 
   const entrar = (reserva: Jogador) => {
     if (!trocando) return;
-    salvarEscalacao(trocarTitular(escalacao, trocando.jogadorId, reserva.id));
+    salvarEscalacao(trocarTitular(escalacao, trocando.jogadorId, reserva.id), false);
     setTrocando(null);
   };
 
@@ -80,6 +83,16 @@ export default function Elenco() {
         {LISTA_ESTILOS.map((e) => (
           <Chip key={e} texto={t.estilos[e]} ativo={e === escalacao.estilo} aoTocar={() => mudarTatica(escalacao.formacao, e)} />
         ))}
+      </View>
+
+      <Text style={estilos.secao}>{t.assistente}</Text>
+      <Text style={estilos.ajuda}>{t.assistenteTexto}</Text>
+      <View style={estilos.linhaChips}>
+        <Chip
+          texto={t.assistente}
+          ativo={clube.assistente}
+          aoTocar={() => salvarEscalacao(clube.assistente ? escalacao : melhorEscalacao(clube, escalacao.formacao, escalacao.estilo), !clube.assistente)}
+        />
       </View>
 
       <Text style={estilos.secao}>{t.titulares}</Text>
