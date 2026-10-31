@@ -1,6 +1,7 @@
 import { combinarSementes, criarRng, embaralhar, escolher, inteiro } from './aleatorio.ts';
 import type { Rng } from './aleatorio.ts';
 import { limitarNivel } from './escalacao.ts';
+import { sortearPotencial } from './estrelas.ts';
 import type { Clube, Dificuldade, Jogador, Personalidade, Posicao } from './tipos.ts';
 
 // Tudo fictício: nenhum clube ou jogador real, para não depender de licenças.
@@ -49,9 +50,26 @@ export function gerarSigla(nome: string) {
 }
 
 export const CLUBES_POR_LIGA = 20;
+/** Até esta idade o jogador ainda cresce em direção ao potencial. */
+export const IDADE_LIMITE_DE_EVOLUCAO = 28;
 const SALDO_INICIAL = 2_000_000;
 
 export const gerarNome = (rng: Rng) => `${escolher(rng, NOMES)} ${escolher(rng, SOBRENOMES)}`;
+
+/** Sai da base no piso da escala, seja qual for a raridade: um lendário ainda precisa crescer. */
+export function gerarJovem(rng: Rng, id: number, posicao: Posicao): Jogador {
+  const forca = inteiro(rng, 30, 38);
+  return {
+    id,
+    nome: gerarNome(rng),
+    posicao,
+    idade: inteiro(rng, 17, 19),
+    forca,
+    potencial: sortearPotencial(rng, forca),
+    energia: 100,
+    rodadasFora: 0,
+  };
+}
 
 function gerarElenco(rng: Rng, proximoId: () => number, forcaBase: number, jovem: boolean): Jogador[] {
   const elenco: Jogador[] = [];
@@ -65,7 +83,7 @@ function gerarElenco(rng: Rng, proximoId: () => number, forcaBase: number, jovem
         posicao,
         idade,
         forca,
-        potencial: idade <= 23 ? limitarNivel(forca + inteiro(rng, 2, 14)) : forca,
+        potencial: idade <= IDADE_LIMITE_DE_EVOLUCAO ? sortearPotencial(rng, forca) : forca,
         energia: 100,
         rodadasFora: 0,
       });

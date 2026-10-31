@@ -30,6 +30,15 @@ Cada jogador tem nível de 30 a 100 (campo `forca`, junto com o teto `potencial`
 de 30 a 100, é a média dos 11 titulares do próximo jogo: quem joga fora de posição vale 70%, e vaga vazia
 vale zero. Um time inicial tem nível de 35 a 40. Ele acompanha a escalação, as lesões e a evolução dos jogadores, mas não a energia.
 
+## Estrelas
+
+De 1 a 5, de meia em meia, mostram o auge que o jogador pode alcançar (campo `potencial`) e não mudam
+com a idade. Todo jogador que surge é sorteado: Normal, 1 a 2 estrelas (70%); Intermediário, 2,5 a 3
+(23%); Raro, 3,5 a 4 (6,5%); Lendário, 4,5 a 5 (0,5%). Até os 28 anos ele sobe um quarto do que falta
+até o potencial por temporada. Eles surgem no elenco inicial, na base, quando alguém se aposenta ou a
+máquina vende, e na peneira. A peneira é uma decisão do dia: o técnico vê o jovem, as estrelas e o preço
+antes de pagar, então não é caixa surpresa.
+
 ## Transferências
 
 - **Mercado direto**: a cada dia, cada clube da máquina põe um jogador à venda e vende no máximo esse. O

@@ -28,8 +28,9 @@ describe('valor do jogador', () => {
   const base: Jogador = { id: 1, nome: 'X', posicao: 'ATA', idade: 27, forca: 40, potencial: 40, energia: 100, rodadasFora: 0 };
 
   it('cresce com o nível e com o potencial do jovem, e cai com a idade', () => {
-    assert.ok(valorDe({ ...base, forca: 80 }) > 10 * valorDe(base));
+    assert.ok(valorDe({ ...base, forca: 80, potencial: 80 }) > 10 * valorDe(base));
     assert.ok(valorDe({ ...base, idade: 20, potencial: 55 }) > valorDe(base));
+    assert.ok(valorDe({ ...base, forca: 36, idade: 17, potencial: 97 }) * 1.25 < 2_000_000, 'lendário jovem é alcançável');
     assert.ok(valorDe({ ...base, idade: 33 }) < valorDe(base));
   });
 

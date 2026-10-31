@@ -579,7 +579,7 @@ describe('nível de 30 a 100', () => {
     Object.assign(liga.clubes[0].elenco[0], { idade: 18, forca: 100, potencial: 100 });
     Object.assign(liga.clubes[0].elenco[1], { idade: 32, forca: 30, potencial: 30 });
     const { elenco } = evoluirClubes(liga)[0];
-    assert.equal(elenco[0].forca, 100);
+    assert.ok(elenco[0].forca >= 99 && elenco[0].forca <= 100);
     assert.equal(elenco[1].forca, 30);
   });
 

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { Aviso, Carregando, Chip } from '../../componentes/ui';
+import { Aviso, Carregando, Chip, Estrelas } from '../../componentes/ui';
 import { LISTA_ESTILOS, LISTA_FORMACOES, melhorEscalacao, nivelDoTime, trocarTitular } from '../../dominio/escalacao';
 import type { Escalado, Estilo, Formacao, Jogador } from '../../dominio/tipos';
 import { useLiga } from '../../hooks/useLiga';
@@ -31,6 +31,7 @@ function LinhaJogador({
       <Text style={estilos.posicao}>{posicao}</Text>
       <View style={estilos.flex}>
         <Text style={estilos.nome} numberOfLines={1}>{jogador.nome}</Text>
+        <Estrelas potencial={jogador.potencial} />
         <Text style={jogador.rodadasFora > 0 ? estilos.fora : estilos.detalhe}>
           {jogador.rodadasFora > 0
             ? t.rodadasFora(jogador.rodadasFora)

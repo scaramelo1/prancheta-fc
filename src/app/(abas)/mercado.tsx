@@ -3,7 +3,8 @@ import { useCallback, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { Aviso, Botao, Carregando, Chip } from '../../componentes/ui';
+import { Aviso, Botao, Carregando, Chip, Estrelas } from '../../componentes/ui';
+import { raridadeDe } from '../../dominio/estrelas';
 import { clubePorId } from '../../dominio/liga';
 import type { Clube, Jogador, Leilao, Liga } from '../../dominio/tipos';
 import { leiloesDe, precoDeVenda, proximoLance, saldoLivre } from '../../dominio/transferencias';
@@ -26,7 +27,11 @@ function CartaoJogador({ jogador, children }: { jogador: Jogador; children: Reac
         <Text style={estilos.posicao}>{t.posicoes[jogador.posicao]}</Text>
         <View style={estilos.flex}>
           <Text style={estilos.nome} numberOfLines={1}>{jogador.nome}</Text>
-          <Text style={estilos.detalhe}>{t.dadosJogador(jogador.idade, jogador.potencial)}</Text>
+          <View style={estilos.linhaEstrelas}>
+            <Estrelas potencial={jogador.potencial} />
+            <Text style={estilos.detalhe}>{t.raridades[raridadeDe(jogador.potencial)]}</Text>
+          </View>
+          <Text style={estilos.detalhe}>{t.idadeAnos(jogador.idade)}</Text>
         </View>
         <Text accessibilityLabel={t.nivelJogador(jogador.forca)} style={estilos.nivel}>{jogador.forca}</Text>
       </View>
@@ -192,6 +197,7 @@ const estilos = StyleSheet.create({
   linhaChips: { flexDirection: 'row', flexWrap: 'wrap', gap: espaco.p },
   cartao: { backgroundColor: cores.cartao, borderRadius: 14, padding: espaco.m, gap: espaco.p },
   topo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  linhaEstrelas: { flexDirection: 'row', alignItems: 'center', gap: espaco.p },
   posicao: { color: cores.gramado, fontWeight: '800', fontSize: 13, width: 34 },
   nome: { color: cores.texto, fontSize: 15, fontWeight: '600' },
   detalhe: { color: cores.textoSuave, fontSize: 13 },

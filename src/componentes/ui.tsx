@@ -1,6 +1,9 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { estrelasDe } from '../dominio/estrelas';
 import type { Clube } from '../dominio/tipos';
+import { t } from '../i18n';
 import { cores, espaco } from '../tema';
 
 export function Carregando() {
@@ -60,6 +63,18 @@ export function Chip({ texto, ativo, aoTocar }: { texto: string; ativo: boolean;
   );
 }
 
+export function Estrelas({ potencial, tamanho = 13 }: { potencial: number; tamanho?: number }) {
+  const estrelas = estrelasDe(potencial);
+  return (
+    <View accessible accessibilityLabel={t.estrelas(estrelas)} style={estilos.estrelas}>
+      {[1, 2, 3, 4, 5].map((n) => {
+        const nome = estrelas >= n ? 'star' : estrelas >= n - 0.5 ? 'star-half' : 'star-outline';
+        return <Ionicons key={n} name={nome} size={tamanho} color={cores.destaque} />;
+      })}
+    </View>
+  );
+}
+
 export function Escudo({ clube, tamanho = 40 }: { clube: Clube; tamanho?: number }) {
   return (
     <View
@@ -91,6 +106,7 @@ const estilos = StyleSheet.create({
   },
   chipAtivo: { backgroundColor: cores.destaque, borderColor: cores.destaque },
   chipTexto: { color: cores.textoSuave, fontWeight: '600', fontSize: 13 },
+  estrelas: { flexDirection: 'row', gap: 1 },
   escudo: { alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#FFFFFF33' },
   escudoTexto: { color: '#fff', fontWeight: '800' },
 });

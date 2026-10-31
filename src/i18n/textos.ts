@@ -1,4 +1,5 @@
 import type { TipoDecisao } from '../dominio/decisoes';
+import type { Raridade } from '../dominio/estrelas';
 import type { Motivo } from '../dominio/resumo';
 import type { Competicao, Dificuldade, DuracaoLiga, Estilo, Fase, Posicao } from '../dominio/tipos';
 
@@ -12,7 +13,9 @@ export interface Textos {
   saldoLivre: (valor: number) => string;
   elencoTotal: (n: number) => string;
   ofertaDe: (clube: string) => string;
-  dadosJogador: (idade: number, potencial: number) => string;
+  raridades: Record<Raridade, string>;
+  estrelas: (n: number) => string;
+  peneira: (jogador: string, estrelas: string, idade: number, valor: string) => string;
   mercadoAjuda: string;
   semOfertas: string;
   comprarPor: (valor: string) => string;
@@ -86,7 +89,7 @@ export interface Textos {
   decisaoDoDia: string;
   aceitar: string;
   recusar: string;
-  decisoes: Record<TipoDecisao, (jogador: string) => string>;
+  decisoes: Record<Exclude<TipoDecisao, 'peneira'>, (jogador: string) => string>;
   motivos: Record<Motivo, string>;
   saldo: (valor: string) => string;
   temporadaNumero: (n: number) => string;
@@ -144,7 +147,9 @@ const pt: Textos = {
   saldoLivre: (valor) => `Disponível: R$ ${valor.toLocaleString()}`,
   elencoTotal: (n) => `${n} jogadores no elenco`,
   ofertaDe: (clube) => `Vendido por ${clube}`,
-  dadosJogador: (idade, potencial) => `${idade} anos · potencial ${potencial}`,
+  raridades: { normal: 'Normal', intermediario: 'Intermediário', raro: 'Raro', lendario: 'Lendário' },
+  estrelas: (n) => `${n.toLocaleString()} ${n === 1 ? 'estrela' : 'estrelas'}`,
+  peneira: (jogador, estrelas, idade, valor) => `Peneira: ${jogador}, ${idade} anos, ${estrelas}. Contratar por R$ ${valor}?`,
   mercadoAjuda: 'A lista muda todo dia. Cada clube da máquina vende um jogador por dia.',
   semOfertas: 'Nenhum jogador à venda hoje.',
   comprarPor: (valor) => `Comprar por R$ ${valor}`,
@@ -221,7 +226,7 @@ const pt: Textos = {
   decisoes: {
     folga: () => 'Dar folga ao elenco por R$ 50 mil? Todos ganham 15 de energia.',
     amistoso: () => 'Amistoso pago: recebe R$ 150 mil, mas todos perdem 10 de energia.',
-    jovem: (jogador) => `Treino extra para ${jogador} por R$ 100 mil? Ganha 1 ponto de força.`,
+    jovem: (jogador) => `Treino extra para ${jogador} por R$ 100 mil? Ganha 1 ponto de nível.`,
   },
   motivos: {
     expulsao: 'A expulsão pesou: com um a menos, o time perdeu força.',
@@ -288,7 +293,9 @@ const en: Textos = {
   saldoLivre: (valor) => `Available: R$ ${valor.toLocaleString()}`,
   elencoTotal: (n) => `${n} players in the squad`,
   ofertaDe: (clube) => `Sold by ${clube}`,
-  dadosJogador: (idade, potencial) => `${idade} years · potential ${potencial}`,
+  raridades: { normal: 'Common', intermediario: 'Intermediate', raro: 'Rare', lendario: 'Legendary' },
+  estrelas: (n) => `${n.toLocaleString()} ${n === 1 ? 'star' : 'stars'}`,
+  peneira: (jogador, estrelas, idade, valor) => `Youth trials: ${jogador}, ${idade} years, ${estrelas}. Sign for R$ ${valor}?`,
   mercadoAjuda: 'The list changes every day. Each computer club sells one player a day.',
   semOfertas: 'No players for sale today.',
   comprarPor: (valor) => `Buy for R$ ${valor}`,
@@ -365,7 +372,7 @@ const en: Textos = {
   decisoes: {
     folga: () => 'Give the squad a day off for 50,000? Everyone gains 15 energy.',
     amistoso: () => 'Paid friendly: earn 150,000, but everyone loses 10 energy.',
-    jovem: (jogador) => `Extra training for ${jogador} for 100,000? Gains 1 strength point.`,
+    jovem: (jogador) => `Extra training for ${jogador} for 100,000? Gains 1 level point.`,
   },
   motivos: {
     expulsao: 'The red card hurt: a player down, the team lost strength.',
@@ -432,7 +439,9 @@ const es: Textos = {
   saldoLivre: (valor) => `Disponible: R$ ${valor.toLocaleString()}`,
   elencoTotal: (n) => `${n} jugadores en la plantilla`,
   ofertaDe: (clube) => `Lo vende ${clube}`,
-  dadosJogador: (idade, potencial) => `${idade} años · potencial ${potencial}`,
+  raridades: { normal: 'Normal', intermediario: 'Intermedio', raro: 'Raro', lendario: 'Legendario' },
+  estrelas: (n) => `${n.toLocaleString()} ${n === 1 ? 'estrella' : 'estrellas'}`,
+  peneira: (jogador, estrelas, idade, valor) => `Prueba juvenil: ${jogador}, ${idade} años, ${estrelas}. ¿Fichar por R$ ${valor}?`,
   mercadoAjuda: 'La lista cambia cada día. Cada club de la máquina vende un jugador por día.',
   semOfertas: 'Ningún jugador a la venta hoy.',
   comprarPor: (valor) => `Comprar por R$ ${valor}`,
@@ -509,7 +518,7 @@ const es: Textos = {
   decisoes: {
     folga: () => '¿Dar descanso a la plantilla por 50.000? Todos ganan 15 de energía.',
     amistoso: () => 'Amistoso pagado: recibes 150.000, pero todos pierden 10 de energía.',
-    jovem: (jogador) => `¿Entrenamiento extra para ${jogador} por 100.000? Gana 1 punto de fuerza.`,
+    jovem: (jogador) => `¿Entrenamiento extra para ${jogador} por 100.000? Gana 1 punto de nivel.`,
   },
   motivos: {
     expulsao: 'La expulsión pesó: con uno menos, el equipo perdió fuerza.',

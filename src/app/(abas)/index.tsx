@@ -4,9 +4,10 @@ import { useCallback, useState } from 'react';
 import { Alert, RefreshControl, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import type { VisaoLiga } from '../../api/cliente';
-import { Aviso, Botao, Carregando, Chip, Escudo } from '../../componentes/ui';
+import { Aviso, Botao, Carregando, Chip, Escudo, Estrelas } from '../../componentes/ui';
 import { diaDaData, horarioDaData } from '../../dominio/calendario';
 import { nivelDoTime } from '../../dominio/escalacao';
+import { estrelasDe } from '../../dominio/estrelas';
 import {
   clubePorId, partidaDoClube, tabelaDaCompeticao, tabelaGeral, temporadaEncerrada, torneioAtual, ultimaPartidaDoClube,
 } from '../../dominio/liga';
@@ -225,7 +226,12 @@ function Painel({ visao, clube, aoOutraLiga }: { visao: VisaoLiga; clube: Clube;
       {decisao && visao.iniciada && (
         <View style={estilos.cartao}>
           <Text style={estilos.rotuloCartao}>{t.decisaoDoDia}</Text>
-          <Text style={estilos.textoDecisao}>{t.decisoes[decisao.tipo](decisao.jogador ?? '')}</Text>
+          <Text style={estilos.textoDecisao}>
+            {decisao.tipo === 'peneira'
+              ? t.peneira(decisao.jogador ?? '', t.estrelas(estrelasDe(decisao.prospecto?.potencial ?? 0)), decisao.prospecto?.idade ?? 0, (decisao.custo ?? 0).toLocaleString())
+              : t.decisoes[decisao.tipo](decisao.jogador ?? '')}
+          </Text>
+          {decisao.prospecto && <Estrelas potencial={decisao.prospecto.potencial} tamanho={18} />}
           <View style={estilos.linhaBotoes}>
             <View style={estilos.flex}>
               <Botao texto={t.aceitar} aoTocar={() => decidir(true)} />

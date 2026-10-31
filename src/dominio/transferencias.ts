@@ -1,7 +1,7 @@
 import { combinarSementes, criarRng, inteiro } from './aleatorio.ts';
 import { diaDaData } from './calendario.ts';
 import { repararEscalacao } from './escalacao.ts';
-import { revelarJovem } from './evolucao.ts';
+import { IDADE_LIMITE_DE_EVOLUCAO, gerarJovem } from './geracao.ts';
 import type { Clube, Jogador, Leilao, Liga, Transferencia } from './tipos.ts';
 
 export const ELENCO_MINIMO = 16;
@@ -10,7 +10,8 @@ export const ELENCO_MAXIMO = 30;
 export const DATAS_DE_LEILAO = 6;
 const VALOR_BASE = 300_000;
 const NIVEL_REFERENCIA = 38;
-const IDADE_JOVEM = 23;
+/** Parte da distância até o potencial que entra no preço: lendário é caro, mas alcançável. */
+const PESO_DO_POTENCIAL = 0.3;
 const IDADE_VETERANO = 31;
 const DESCONTO_VETERANO = 0.6;
 /** Comprar custa mais do que vender rende: revender o mesmo jogador sempre dá prejuízo. */
@@ -32,9 +33,9 @@ export interface Oferta {
 
 const arredondar = (valor: number) => Math.max(DEGRAU, Math.round(valor / DEGRAU) * DEGRAU);
 
-/** Cresce rápido com o nível. Jovem vale pelo que pode virar, e veterano vale menos. */
+/** Cresce rápido com o nível. Quem ainda evolui vale também pelo que pode virar, e veterano vale menos. */
 export function valorDe(j: Jogador) {
-  const nivel = j.idade <= IDADE_JOVEM ? (j.forca + j.potencial) / 2 : j.forca;
+  const nivel = j.idade <= IDADE_LIMITE_DE_EVOLUCAO ? j.forca + (j.potencial - j.forca) * PESO_DO_POTENCIAL : j.forca;
   const idade = j.idade >= IDADE_VETERANO ? DESCONTO_VETERANO : 1;
   return arredondar(VALOR_BASE * (nivel / NIVEL_REFERENCIA) ** 4 * idade);
 }
@@ -110,7 +111,7 @@ export function comprarDaMaquina(liga: Liga, clubeId: number, jogadorId: number)
 
   const ultimoId = Math.max(...liga.clubes.flatMap((c) => c.elenco.map((j) => j.id)));
   const rng = criarRng(combinarSementes(liga.semente, liga.temporada, liga.rodadaAtual, oferta.clubeId, jogadorId));
-  const jovem = revelarJovem(rng, ultimoId + 1, oferta.jogador);
+  const jovem = gerarJovem(rng, ultimoId + 1, oferta.jogador.posicao);
   return {
     ...liga,
     clubes: liga.clubes.map((c) => {
