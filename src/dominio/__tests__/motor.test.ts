@@ -10,7 +10,7 @@ import { CACHE_AMISTOSO, CUSTO_FOLGA, CUSTO_TREINO_JOVEM, aplicarDecisao, decisa
 import { evoluirClubes, folhaSalarial, premioDaLiga, salarioDe } from '../evolucao.ts';
 import { gerarSigla } from '../geracao.ts';
 import {
-  calcularTabela, criarLiga, jogarDia, jogarRodada, novaTemporada, partidaDoClube, tabelaDaCompeticao, tabelaGeral, temporadaEncerrada, vencedorDaPartida,
+  calcularTabela, criarLiga, entrarNaLiga, escalacaoValida, jogarDia, jogarRodada, novaTemporada, partidaDoClube, tabelaDaCompeticao, tabelaGeral, temporadaEncerrada, vencedorDaPartida,
 } from '../liga.ts';
 import { montarEquipe, simularPartida } from '../simulacao.ts';
 import { explicarPartida } from '../resumo.ts';
@@ -507,5 +507,33 @@ describe('decisão do dia', () => {
 
   it('não aparece depois do fim da temporada', () => {
     assert.equal(decisaoDoDia(temporadaCompleta, temporadaCompleta.clubes[0]), null);
+  });
+});
+
+describe('entrada na liga', () => {
+  const forca = (c: Clube) => c.elenco.reduce((soma, j) => soma + j.forca, 0);
+
+  it('o novo técnico assume o clube mais fraco da máquina', () => {
+    const liga = nova();
+    const maquinas = liga.clubes.filter((c) => c.donoId === null);
+    const fraco = maquinas.reduce((a, c) => (forca(c) < forca(a) ? c : a));
+    const depois = entrarNaLiga(liga, 'amigo', 'Amigos FC');
+    const clube = depois.clubes.find((c) => c.donoId === 'amigo')!;
+    assert.equal(clube.id, fraco.id);
+    assert.equal(clube.nome, 'Amigos FC');
+    assert.equal(clube.personalidade, null);
+    assert.ok(escalacaoValida(clube, clube.escalacao!));
+  });
+
+  it('recusa quem já está na liga e liga cheia', () => {
+    let liga = nova();
+    assert.throws(() => entrarNaLiga(liga, 'eu', 'De Novo FC'));
+    for (let i = 0; i < 19; i++) liga = entrarNaLiga(liga, `t${i}`, `Time ${i} FC`);
+    assert.throws(() => entrarNaLiga(liga, 'outro', 'Sem Vaga FC'));
+  });
+
+  it('dois humanos jogam a mesma liga até o fim', () => {
+    const liga = jogarTudo(entrarNaLiga(nova(), 'amigo', 'Amigos FC'));
+    assert.ok(liga.partidas.every((p) => p.resultado));
   });
 });

@@ -6,7 +6,8 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "test": "node --test \"src/**/*.test.ts\"",
+    "test": "node --test \"src/**/*.test.ts\" \"servidor/**/*.test.ts\"",
+    "servidor": "node servidor/index.ts",
     "typecheck": "tsc --noEmit",
     "calibrar": "node scripts/calibrar.ts",
     "lint": "expo lint"

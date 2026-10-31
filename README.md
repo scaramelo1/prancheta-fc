@@ -34,9 +34,18 @@ equilíbrio entre formações.
 
 ## Situação
 
-Por enquanto tudo roda no aparelho (expo-sqlite), e cada toque avança uma data do calendário. Ainda
-faltam servidor, login, horários reais, ligas de amigos com convite, transferências e o Mundo Oficial. Os campos `tipo`, `divisao`, `temporada` e `donoId` da
+O app ainda roda só no aparelho (expo-sqlite), e cada toque avança uma data do calendário. O servidor
+já existe, mas o app ainda não se conecta a ele. Faltam ligar os dois, transferências e o Mundo Oficial. Os campos `tipo`, `divisao`, `temporada` e `donoId` da
 liga já estão no modelo para isso.
+
+## Servidor
+
+`servidor/` usa só o Node 22 (HTTP e SQLite), sem dependências, e reaproveita `src/dominio`. O acesso ao
+banco fica na interface `Banco`, em `servidor/banco.ts`: para usar PostgreSQL, basta outra implementação.
+
+- Rodadas às 12h, 18h e 21h de Brasília. Se o servidor cair, as perdidas são jogadas na volta.
+- Conta anônima por token, guardado só como hash. Ainda não há e-mail nem recuperação de conta.
+- Inicie com `npm run servidor`. Na VPS, use `servidor/prancheta-fc.service`, limitado a 150 MB.
 
 ## Rodar
 

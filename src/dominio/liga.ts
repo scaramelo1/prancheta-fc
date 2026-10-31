@@ -3,14 +3,14 @@ import {
   DATAS_DA_TACA, DATAS_DOS_TORNEIOS, DATAS_POR_DIA, DATAS_POR_TORNEIO, TORNEIOS_NA_TEMPORADA,
   copaDaData, dataDaCopa, dataDaLiga, diaDaData, gerarCalendario, torneioDaData,
 } from './calendario.ts';
-import { escalacaoParaJogo, melhorEscalacao } from './escalacao.ts';
+import { escalacaoParaJogo, melhorEscalacao, vagasDaFormacao } from './escalacao.ts';
 import {
   BILHETERIA, ENERGIA_GASTA_NO_JOGO, ENERGIA_RECUPERADA_POR_DATA, PREMIOS, evoluirClubes, folhaSalarial, premioDaLiga,
 } from './evolucao.ts';
-import { gerarClubes } from './geracao.ts';
+import { gerarClubes, gerarSigla } from './geracao.ts';
 import type { OpcoesClubes } from './geracao.ts';
 import { montarEquipe, simularPartida } from './simulacao.ts';
-import type { Clube, Competicao, DuracaoLiga, Escalacao, Fase, Liga, LinhaTabela, Partida, Resultado } from './tipos.ts';
+import type { Clube, Competicao, DuracaoLiga, Escalacao, Estilo, Fase, Formacao, Liga, LinhaTabela, Partida, Resultado } from './tipos.ts';
 
 /** Clubes de cada copa: os 8 primeiros seguem na principal, os outros 12 vão para a Copa Prata. */
 const VAGAS_MATA_MATA = 8;
@@ -68,6 +68,41 @@ export function criarLiga(id: string, opcoes: OpcoesClubes & { duracao: DuracaoL
   };
   gerarTorneio(liga, 1);
   return liga;
+}
+
+const forcaDoElenco = (clube: Clube) => clube.elenco.reduce((soma, j) => soma + j.forca, 0);
+
+/** Quem entra assume o clube mais fraco da máquina, para não herdar um time pronto. */
+export function entrarNaLiga(liga: Liga, donoId: string, nomeClube: string): Liga {
+  if (clubeDoDono(liga, donoId)) throw new Error('Este técnico já está na liga');
+  const vagas = liga.clubes.filter((c) => c.donoId === null);
+  if (vagas.length === 0) throw new Error('A liga está cheia');
+  const vaga = vagas.reduce((fraco, c) => (forcaDoElenco(c) < forcaDoElenco(fraco) ? c : fraco));
+  const nome = nomeClube.trim();
+  return {
+    ...liga,
+    clubes: liga.clubes.map((c) => (c.id !== vaga.id ? c : {
+      ...c,
+      nome,
+      sigla: gerarSigla(nome),
+      donoId,
+      personalidade: null,
+      escalacao: melhorEscalacao(c, '4-4-2', 'equilibrado'),
+    })),
+  };
+}
+
+/** Confere a escalação que vem de fora: 11 jogadores do clube, sem repetir, nas vagas da formação. */
+export function escalacaoValida(clube: Clube, escalacao: Escalacao): boolean {
+  const { formacao, estilo, titulares } = escalacao ?? {};
+  if (!(['4-4-2', '4-3-3', '3-5-2', '5-4-1'] as Formacao[]).includes(formacao)) return false;
+  if (!(['defensivo', 'equilibrado', 'ofensivo'] as Estilo[]).includes(estilo)) return false;
+  if (!Array.isArray(titulares) || titulares.length !== 11) return false;
+  const ids = new Set(clube.elenco.map((j) => j.id));
+  if (new Set(titulares.map((t) => t.jogadorId)).size !== 11) return false;
+  if (!titulares.every((t) => ids.has(t.jogadorId))) return false;
+  const vagas = vagasDaFormacao(formacao).sort();
+  return titulares.map((t) => t.posicao).sort().every((p, i) => p === vagas[i]);
 }
 
 export const temporadaEncerrada = (liga: Liga) => liga.rodadaAtual > liga.totalRodadas;

@@ -1,0 +1,24 @@
+# Copiar para /etc/systemd/system/. O limite de memória protege os outros sistemas da VPS:
+# se passar dele, só o jogo reinicia.
+[Unit]
+Description=Servidor do Prancheta FC
+After=network.target
+
+[Service]
+WorkingDirectory=/var/www/prancheta-fc
+ExecStart=/usr/bin/env node --no-warnings --max-old-space-size=110 servidor/index.ts
+Environment=PORTA=3100
+Environment=BANCO=/var/lib/prancheta-fc/prancheta.db
+DynamicUser=yes
+StateDirectory=prancheta-fc
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+MemoryMax=150M
+MemorySwapMax=50M
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
