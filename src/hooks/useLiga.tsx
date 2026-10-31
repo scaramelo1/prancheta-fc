@@ -2,7 +2,7 @@ import * as Crypto from 'expo-crypto';
 import * as Linking from 'expo-linking';
 import { useSQLiteContext } from 'expo-sqlite';
 import * as WebBrowser from 'expo-web-browser';
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Alert } from 'react-native';
 
@@ -110,10 +110,6 @@ export function ProvedorLiga({ children }: { children: ReactNode }) {
       setPronta(true);
     }
   }, [aplicar, db, fecharSessao, obterCliente]);
-
-  useEffect(() => {
-    recarregar();
-  }, [recarregar]);
 
   const entrarComGoogle = useCallback(async () => {
     // O código só vale junto com o verificador, que nunca sai do aparelho.
