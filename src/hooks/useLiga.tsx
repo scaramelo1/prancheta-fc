@@ -100,7 +100,7 @@ export function ProvedorLiga({ children }: { children: ReactNode }) {
   const aplicar = useCallback((nova: VisaoLiga) => {
     ligaAberta.current = nova.id;
     setVisao(nova);
-    salvarConfig(db, CHAVE_LIGA, nova.id);
+    salvarConfig(db, CHAVE_LIGA, nova.id).catch(() => undefined);
   }, [db]);
 
   const recarregar = useCallback(async () => {
@@ -113,7 +113,7 @@ export function ProvedorLiga({ children }: { children: ReactNode }) {
       setNomeTecnico(eu.nome);
       const lista = await api.ligas();
       setLigas(lista);
-      const salva = ligaAberta.current ?? await lerConfig(db, CHAVE_LIGA);
+      const salva = ligaAberta.current ?? await lerConfig(db, CHAVE_LIGA).catch(() => null);
       const id = lista.some((l) => l.id === salva) ? salva : lista[0]?.id;
       if (id) aplicar(await api.liga(id));
       else setVisao(null);
@@ -146,18 +146,23 @@ export function ProvedorLiga({ children }: { children: ReactNode }) {
       return null;
     };
     const navegadorFechou = WebBrowser.openAuthSessionAsync(urlDoLogin(retorno, desafio), retorno)
+      .catch((falha: unknown) => { console.warn('Navegador do login', falha); })
       .then(() => new Promise<null>((pronto) => { setTimeout(() => { pronto(null); }, FOLGA_AO_FECHAR_MS); }));
 
     try {
       const sessao = await Promise.race([esperarSessao(), navegadorFechou]);
       if (!sessao) return;
       if (Platform.OS === 'ios') WebBrowser.dismissAuthSession();
-      await salvarConfig(db, CHAVE_TOKEN, sessao.token);
+      // Voltar do navegador pode invalidar o banco local no Expo Go. A sessão já é válida: sem gravar,
+      // ela dura até fechar o app, o que é melhor do que recusar um login que deu certo.
+      await salvarConfig(db, CHAVE_TOKEN, sessao.token)
+        .catch((falha: unknown) => { console.warn('Sessão não gravada no aparelho', falha); });
       abrirSessao(sessao.token);
       setPronta(false);
       await recarregar();
-    } catch {
-      throw new Error(t.erroLogin);
+    } catch (falha) {
+      console.error('Falha no login', falha);
+      throw new Error(__DEV__ ? `${t.erroLogin} (${(falha as Error).message})` : t.erroLogin);
     } finally {
       ativo = false;
     }
