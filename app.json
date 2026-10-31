@@ -1,0 +1,45 @@
+{
+  "expo": {
+    "name": "Prancheta FC",
+    "slug": "prancheta-fc",
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "version": "1.0.0",
+    "scheme": "pranchetafc",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "plugins": [
+      "expo-router",
+      "expo-localization",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 280,
+          "resizeMode": "contain",
+          "backgroundColor": "#0B2A3A"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "br.com.fsadesigner.pranchetafc"
+    },
+    "android": {
+      "package": "br.com.fsadesigner.pranchetafc",
+      "adaptiveIcon": {
+        "backgroundColor": "#0B2A3A",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    }
+  }
+}
