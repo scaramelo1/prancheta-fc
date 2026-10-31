@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import {
   copaDaData, dataDaCopa, dataDaLiga, diaDaData, gerarCalendario, horarioDaData,
 } from '../calendario.ts';
-import { escalacaoParaJogo, forcaEfetiva, melhorEscalacao, trocarTitular, vagasDaFormacao } from '../escalacao.ts';
+import { escalacaoParaJogo, forcaEfetiva, melhorEscalacao, nivelDoTime, trocarTitular, vagasDaFormacao } from '../escalacao.ts';
 import { CACHE_AMISTOSO, CUSTO_FOLGA, CUSTO_TREINO_JOVEM, aplicarDecisao, decisaoDoDia } from '../decisoes.ts';
 import { evoluirClubes, folhaSalarial, premioDaLiga, salarioDe } from '../evolucao.ts';
 import { gerarSigla } from '../geracao.ts';
@@ -536,5 +536,48 @@ describe('entrada na liga', () => {
   it('dois humanos jogam a mesma liga até o fim', () => {
     const liga = jogarTudo(entrarNaLiga(nova(), 'amigo', 'Amigos FC'));
     assert.ok(liga.partidas.every((p) => p.resultado));
+  });
+});
+
+describe('nível de 0 a 100', () => {
+  it('o nível do time é a média dos titulares e acompanha o dos jogadores', () => {
+    const clube = nova().clubes[0];
+    assert.equal(nivelDoTime(comForca(clube, 0)), 0);
+    assert.equal(nivelDoTime(comForca(clube, 73)), 73);
+    assert.equal(nivelDoTime(comForca(clube, 100)), 100);
+  });
+
+  it('um reforço entre os titulares sobe o nível do time', () => {
+    const clube = comForca(nova().clubes[0], 50);
+    const [primeiro, ...resto] = clube.elenco;
+    assert.equal(nivelDoTime({ ...clube, elenco: [{ ...primeiro, forca: 100 }, ...resto] }), 55);
+  });
+
+  it('jogador fora de posição e vaga vazia derrubam o nível', () => {
+    const clube = comForca(nova().clubes[0], 60);
+    const semGoleiros = { ...clube, elenco: clube.elenco.map((j) => (j.posicao === 'GOL' ? { ...j, rodadasFora: 3 } : j)) };
+    assert.ok(nivelDoTime(semGoleiros) < 60);
+    const incompleto = { ...clube, elenco: clube.elenco.slice(0, 5) };
+    assert.ok(nivelDoTime(incompleto) < 30);
+  });
+
+  it('a evolução vai até 100 e desce até 0, sem passar dos limites', () => {
+    const liga = nova();
+    Object.assign(liga.clubes[0].elenco[0], { idade: 18, forca: 100, potencial: 100 });
+    Object.assign(liga.clubes[0].elenco[1], { idade: 32, forca: 1, potencial: 1 });
+    const { elenco } = evoluirClubes(liga)[0];
+    assert.equal(elenco[0].forca, 100);
+    assert.ok(elenco[1].forca >= 0);
+  });
+
+  it('o jogo roda com os extremos da escala', () => {
+    const { clubes } = nova();
+    const [fraco, forte] = [comForca(clubes[1], 0), comForca(clubes[2], 100)];
+    const r = simularPartida(
+      montarEquipe(forte, melhorEscalacao(forte, '4-4-2', 'equilibrado')),
+      montarEquipe(fraco, melhorEscalacao(fraco, '4-4-2', 'equilibrado')),
+      3,
+    );
+    assert.ok(r.golsCasa > r.golsFora);
   });
 });

@@ -67,6 +67,10 @@ export interface Textos {
   assistenteTexto: string;
   penaltis: (clube: string) => string;
   energia: (n: number) => string;
+  nivelTime: string;
+  nivelTimeAjuda: string;
+  nivelCurto: (n: number) => string;
+  nivelJogador: (n: number) => string;
   geral: string;
   emCasa: string;
   foraDeCasa: string;
@@ -179,6 +183,10 @@ const pt: Textos = {
   assistenteTexto: 'Ele poupa cansados e repõe desfalques a cada jogo. Trocar um titular desliga o assistente.',
   penaltis: (clube) => `${clube} venceu nos pênaltis`,
   energia: (n) => `${n}% de energia`,
+  nivelTime: 'Nível do time',
+  nivelTimeAjuda: 'De 0 a 100: média dos titulares do próximo jogo. Jogador fora de posição conta menos.',
+  nivelCurto: (n) => `Nível ${n}`,
+  nivelJogador: (n) => `Nível ${n} de 100`,
   geral: 'Geral',
   emCasa: 'Em casa',
   foraDeCasa: 'Fora de casa',
@@ -291,6 +299,10 @@ const en: Textos = {
   assistenteTexto: 'Rests tired players and covers absences every match. Swapping a starter turns it off.',
   penaltis: (clube) => `${clube} won on penalties`,
   energia: (n) => `${n}% energy`,
+  nivelTime: 'Team level',
+  nivelTimeAjuda: 'From 0 to 100: average of the next match starters. Players out of position count for less.',
+  nivelCurto: (n) => `Level ${n}`,
+  nivelJogador: (n) => `Level ${n} of 100`,
   geral: 'Overall',
   emCasa: 'Home',
   foraDeCasa: 'Away',
@@ -403,6 +415,10 @@ const es: Textos = {
   assistenteTexto: 'Reserva a los cansados y cubre las bajas en cada partido. Cambiar un titular lo desactiva.',
   penaltis: (clube) => `${clube} ganó en los penales`,
   energia: (n) => `${n}% de energía`,
+  nivelTime: 'Nivel del equipo',
+  nivelTimeAjuda: 'De 0 a 100: promedio de los titulares del próximo partido. Un jugador fuera de posición cuenta menos.',
+  nivelCurto: (n) => `Nivel ${n}`,
+  nivelJogador: (n) => `Nivel ${n} de 100`,
   geral: 'General',
   emCasa: 'En casa',
   foraDeCasa: 'Fuera de casa',

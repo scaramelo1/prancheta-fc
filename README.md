@@ -5,7 +5,7 @@ temporada contra clubes da máquina. Todos os clubes e jogadores são fictícios
 
 - **Clube**: cria a liga de 20 clubes ou entra por código de convite, mostra o próximo jogo, a decisão
   do dia e o motivo do último resultado.
-- **Elenco**: formação, estilo de jogo, assistente, energia e troca de titulares.
+- **Elenco**: nível do time, formação, estilo de jogo, assistente, energia e troca de titulares.
 - **Tabela**: liga, copa, classificação geral e resultados por data.
 - **Partida**: narração minuto a minuto, estatísticas e filtro só com os gols.
 
@@ -22,6 +22,12 @@ São 60 dias: 3 torneios de 19 dias e 3 dias de finais, com jogos às 12h, 18h e
 Cada data custa 14 de energia a quem joga e devolve 7 a todos. Lesões tiram de 3 a 12 jogos, e a
 folha salarial é paga a cada 7 dias. Na virada da temporada, os jogadores envelhecem, os jovens
 evoluem e quem se aposenta dá lugar a um jovem da mesma posição.
+
+## Nível
+
+Cada jogador tem nível de 0 a 100 (campo `forca`, junto com o teto `potencial`). O nível do time, também
+de 0 a 100, é a média dos 11 titulares do próximo jogo: quem joga fora de posição vale 70%, e vaga vazia
+vale zero. Ele acompanha a escalação, as lesões e a evolução dos jogadores, mas não a energia.
 
 ## Motor
 

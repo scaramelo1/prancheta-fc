@@ -1,6 +1,6 @@
 import { combinarSementes, criarRng, escolherPonderado, inteiro } from './aleatorio.ts';
 import type { Rng } from './aleatorio.ts';
-import { ESTILOS, FORMACOES, forcaEfetiva } from './escalacao.ts';
+import { ESTILOS, FORMACOES, PENALIDADE_FORA_DE_POSICAO, forcaEfetiva } from './escalacao.ts';
 import type { Clube, Escalacao, Evento, Jogador, Posicao, Resultado } from './tipos.ts';
 
 const MINUTOS = 90;
@@ -9,7 +9,6 @@ const CONVERSAO_BASE = 0.082;
 const ESCALA_CHANCE = 24;
 const ESCALA_POSSE = 18;
 const MANDO = 2.5;
-const PENALIDADE_FORA_DE_POSICAO = 0.7;
 const PENALIDADE_EXPULSAO = 6;
 const PROB_AMARELO = 0.02;
 const PROB_VERMELHO = 0.0012;

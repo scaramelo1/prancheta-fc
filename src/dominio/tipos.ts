@@ -13,6 +13,7 @@ export interface Jogador {
   nome: string;
   posicao: Posicao;
   idade: number;
+  /** Nível de 0 a 100, mostrado ao técnico como "Nível". */
   forca: number;
   /** Teto da evolução; só os jovens têm potencial acima da força atual. */
   potencial: number;

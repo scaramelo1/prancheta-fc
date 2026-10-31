@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Aviso, Carregando, Chip } from '../../componentes/ui';
-import { LISTA_ESTILOS, LISTA_FORMACOES, melhorEscalacao, trocarTitular } from '../../dominio/escalacao';
+import { LISTA_ESTILOS, LISTA_FORMACOES, melhorEscalacao, nivelDoTime, trocarTitular } from '../../dominio/escalacao';
 import type { Escalado, Estilo, Formacao, Jogador } from '../../dominio/tipos';
 import { useLiga } from '../../hooks/useLiga';
 import { t } from '../../i18n';
@@ -37,7 +37,7 @@ function LinhaJogador({
             : `${t.idadeAnos(jogador.idade)} · ${t.energia(jogador.energia)}`}
         </Text>
       </View>
-      <Text style={estilos.forca}>{jogador.forca}</Text>
+      <Text accessibilityLabel={t.nivelJogador(jogador.forca)} style={estilos.forca}>{jogador.forca}</Text>
     </Pressable>
   );
 }
@@ -71,6 +71,12 @@ export default function Elenco() {
 
   return (
     <ScrollView contentContainerStyle={estilos.tela}>
+      <View style={estilos.nivelTime}>
+        <Text style={estilos.secao}>{t.nivelTime}</Text>
+        <Text style={estilos.nivelTimeValor}>{nivelDoTime(clube)}</Text>
+      </View>
+      <Text style={estilos.ajuda}>{t.nivelTimeAjuda}</Text>
+
       <Text style={estilos.secao}>{t.formacao}</Text>
       <View style={estilos.linhaChips}>
         {LISTA_FORMACOES.map((f) => (
@@ -152,4 +158,6 @@ const estilos = StyleSheet.create({
   detalhe: { color: cores.textoSuave, fontSize: 12 },
   fora: { color: cores.erro, fontSize: 12 },
   forca: { color: cores.destaque, fontSize: 17, fontWeight: '800' },
+  nivelTime: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  nivelTimeValor: { color: cores.destaque, fontSize: 28, fontWeight: '800' },
 });

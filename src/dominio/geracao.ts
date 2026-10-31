@@ -1,5 +1,6 @@
 import { combinarSementes, criarRng, embaralhar, escolher, inteiro } from './aleatorio.ts';
 import type { Rng } from './aleatorio.ts';
+import { limitarNivel } from './escalacao.ts';
 import type { Clube, Dificuldade, Jogador, Personalidade, Posicao } from './tipos.ts';
 
 // Tudo fictício: nenhum clube ou jogador real, para não depender de licenças.
@@ -56,14 +57,14 @@ function gerarElenco(rng: Rng, proximoId: () => number, forcaBase: number, jovem
   for (const [posicao, quantidade] of ELENCO) {
     for (let i = 0; i < quantidade; i++) {
       const idade = jovem ? inteiro(rng, 17, 25) : inteiro(rng, 19, 35);
-      const forca = Math.max(30, Math.min(95, forcaBase + inteiro(rng, -8, 8)));
+      const forca = limitarNivel(forcaBase + inteiro(rng, -8, 8));
       elenco.push({
         id: proximoId(),
         nome: gerarNome(rng),
         posicao,
         idade,
         forca,
-        potencial: idade <= 23 ? Math.min(95, forca + inteiro(rng, 2, 14)) : forca,
+        potencial: idade <= 23 ? limitarNivel(forca + inteiro(rng, 2, 14)) : forca,
         energia: 100,
         rodadasFora: 0,
       });

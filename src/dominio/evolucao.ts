@@ -1,6 +1,6 @@
 import { combinarSementes, criarRng, inteiro } from './aleatorio.ts';
 import type { Rng } from './aleatorio.ts';
-import { melhorEscalacao } from './escalacao.ts';
+import { limitarNivel, melhorEscalacao } from './escalacao.ts';
 import { gerarNome } from './geracao.ts';
 import type { Clube, Jogador, Liga } from './tipos.ts';
 
@@ -34,22 +34,23 @@ function evoluir(rng: Rng, j: Jogador): Jogador {
   if (idade <= 24) forca = Math.min(j.potencial, forca + inteiro(rng, 1, 3));
   else if (idade >= 31) forca -= inteiro(rng, 1, 3);
   else forca += inteiro(rng, -1, 1);
-  forca = Math.max(30, Math.min(95, forca));
+  forca = limitarNivel(forca);
   return { ...j, idade, forca, potencial: Math.max(forca, j.potencial), energia: 100, rodadasFora: 0 };
 }
 
 const seAposenta = (rng: Rng, j: Jogador) =>
   j.idade >= IDADE_LIMITE || (j.idade >= IDADE_APOSENTADORIA && rng() < PROB_APOSENTADORIA);
 
+/** Parte do auge de quem saiu, não do nível de fim de carreira: senão o clube enfraquece a cada geração. */
 function revelarJovem(rng: Rng, id: number, antigo: Jogador): Jogador {
-  const forca = Math.max(30, antigo.forca - inteiro(rng, 6, 14));
+  const forca = limitarNivel(antigo.potencial - inteiro(rng, 8, 16));
   return {
     id,
     nome: gerarNome(rng),
     posicao: antigo.posicao,
     idade: inteiro(rng, 17, 19),
     forca,
-    potencial: Math.min(95, forca + inteiro(rng, 6, 20)),
+    potencial: limitarNivel(forca + inteiro(rng, 6, 20)),
     energia: 100,
     rodadasFora: 0,
   };

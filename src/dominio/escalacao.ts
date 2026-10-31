@@ -37,6 +37,13 @@ export function vagasDaFormacao(formacao: Formacao): Posicao[] {
   return ['GOL', ...Array<Posicao>(def).fill('DEF'), ...Array<Posicao>(mei).fill('MEI'), ...Array<Posicao>(ata).fill('ATA')];
 }
 
+export const NIVEL_MINIMO = 0;
+export const NIVEL_MAXIMO = 100;
+export const PENALIDADE_FORA_DE_POSICAO = 0.7;
+const TITULARES = 11;
+
+export const limitarNivel = (nivel: number) => Math.max(NIVEL_MINIMO, Math.min(NIVEL_MAXIMO, nivel));
+
 /** Um jogador sem energia rende 30% menos. */
 export const forcaEfetiva = (j: Jogador) => j.forca * (0.7 + (0.3 * j.energia) / 100);
 
@@ -81,6 +88,19 @@ export function escalacaoParaJogo(clube: Clube): Escalacao {
   const aptos = new Set(clube.elenco.filter((j) => j.rodadasFora === 0).map((j) => j.id));
   const fixos = atual.titulares.filter((e) => aptos.has(e.jogadorId));
   return { ...atual, titulares: completar(clube.elenco, vagasDaFormacao(atual.formacao), fixos) };
+}
+
+/**
+ * Nível do time, de 0 a 100: média dos 11 que vão a campo. Fora de posição conta menos, e vaga sem
+ * jogador conta zero. A energia fica de fora para o número não oscilar a cada jogo.
+ */
+export function nivelDoTime(clube: Clube) {
+  const soma = escalacaoParaJogo(clube).titulares.reduce((total, { jogadorId, posicao }) => {
+    const jogador = clube.elenco.find((j) => j.id === jogadorId);
+    if (!jogador) return total;
+    return total + jogador.forca * (jogador.posicao === posicao ? 1 : PENALIDADE_FORA_DE_POSICAO);
+  }, 0);
+  return Math.round(soma / TITULARES);
 }
 
 /** Troca um titular por um reserva, que passa a ocupar a mesma vaga. */

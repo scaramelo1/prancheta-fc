@@ -6,6 +6,7 @@ import { Alert, RefreshControl, ScrollView, Share, StyleSheet, Text, TextInput, 
 import type { VisaoLiga } from '../../api/cliente';
 import { Aviso, Botao, Carregando, Chip, Escudo } from '../../componentes/ui';
 import { diaDaData, horarioDaData } from '../../dominio/calendario';
+import { nivelDoTime } from '../../dominio/escalacao';
 import {
   clubePorId, partidaDoClube, tabelaDaCompeticao, tabelaGeral, temporadaEncerrada, torneioAtual, ultimaPartidaDoClube,
 } from '../../dominio/liga';
@@ -119,17 +120,19 @@ function Formularios({ aoVoltar }: { aoVoltar?: () => void }) {
   );
 }
 
-function Confronto({ casa, fora, placar }: { casa: Clube; fora: Clube; placar: string }) {
+function Confronto({ casa, fora, placar, nivel }: { casa: Clube; fora: Clube; placar: string; nivel?: boolean }) {
   return (
     <View style={estilos.confronto}>
       <View style={estilos.lado}>
         <Escudo clube={casa} tamanho={52} />
         <Text style={estilos.nomeClube} numberOfLines={2}>{casa.nome}</Text>
+        {nivel && <Text style={estilos.suave}>{t.nivelCurto(nivelDoTime(casa))}</Text>}
       </View>
       <Text style={estilos.placar}>{placar}</Text>
       <View style={estilos.lado}>
         <Escudo clube={fora} tamanho={52} />
         <Text style={estilos.nomeClube} numberOfLines={2}>{fora.nome}</Text>
+        {nivel && <Text style={estilos.suave}>{t.nivelCurto(nivelDoTime(fora))}</Text>}
       </View>
     </View>
   );
@@ -203,6 +206,7 @@ function Painel({ visao, clube, aoOutraLiga }: { visao: VisaoLiga; clube: Clube;
         <View style={estilos.flex}>
           <Text style={estilos.titulo} numberOfLines={1}>{clube.nome}</Text>
           <Text style={estilos.suave}>{t.posicaoAtual(posicao, tabela[posicao - 1].pontos)}</Text>
+          <Text style={estilos.suave}>{t.nivelTime}: {nivelDoTime(clube)}</Text>
           <Text style={estilos.suave}>{t.saldo(clube.saldo.toLocaleString())}</Text>
         </View>
       </View>
@@ -243,7 +247,7 @@ function Painel({ visao, clube, aoOutraLiga }: { visao: VisaoLiga; clube: Clube;
               <Text style={estilos.suave}>
                 {nomeDaPartida(proxima)} · {proxima.casaId === clube.id ? t.emCasa : t.foraDeCasa}
               </Text>
-              <Confronto casa={clubePorId(liga, proxima.casaId)} fora={clubePorId(liga, proxima.foraId)} placar={t.aguardando} />
+              <Confronto casa={clubePorId(liga, proxima.casaId)} fora={clubePorId(liga, proxima.foraId)} placar={t.aguardando} nivel />
             </>
           ) : (
             <Text style={estilos.suave}>{t.semJogo}</Text>
