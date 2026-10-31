@@ -88,7 +88,7 @@ export default function Partida() {
         {lances.length === 0 && <Text style={estilos.lance}>{t.semLances}</Text>}
         {[...lances].reverse().map((e, i) => (
           <View key={`${e.minuto}-${e.jogadorId}-${i}`} style={estilos.linhaLance}>
-            <Text style={estilos.minuto}>{e.minuto}'</Text>
+            <Text style={estilos.minuto}>{`${e.minuto}'`}</Text>
             <Text style={estilos.icone}>{ICONES[e.tipo]}</Text>
             <View style={estilos.flex}>
               <Text style={[estilos.lance, e.tipo === 'gol' && estilos.lanceGol]}>{narrar(e)}</Text>

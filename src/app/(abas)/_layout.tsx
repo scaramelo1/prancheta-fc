@@ -8,9 +8,11 @@ import { cores } from '../../tema';
 type NomeIcone = ComponentProps<typeof Ionicons>['name'];
 
 // A tab bar sempre passa a cor como string; o tipo ColorValue do RN inclui null.
-const icone =
-  (nome: NomeIcone) =>
-  ({ color, size }: { color: unknown; size: number }) => <Ionicons name={nome} color={color as string} size={size} />;
+function icone(nome: NomeIcone) {
+  return function IconeAba({ color, size }: { color: unknown; size: number }) {
+    return <Ionicons name={nome} color={color as string} size={size} />;
+  };
+}
 
 export default function AbasLayout() {
   return (

@@ -187,7 +187,7 @@ function Painel({ liga, clube }: { liga: Liga; clube: Clube }) {
   );
 }
 
-export default function Clube() {
+export default function TelaClube() {
   const { pronta, liga, meuClube } = useLiga();
   if (!pronta) return <Carregando />;
   if (!liga || !meuClube) return <NovaLiga />;
