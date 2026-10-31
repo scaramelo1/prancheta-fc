@@ -43,6 +43,7 @@ interface ValorLiga {
   selecionar: (id: string) => Promise<void>;
   criar: (nomeClube: string, duracao: DuracaoLiga, dificuldade: Dificuldade) => Promise<void>;
   entrar: (codigo: string, nomeClube: string) => Promise<void>;
+  entrarMundo: (nomeClube: string) => Promise<void>;
   iniciar: () => void;
   salvarEscalacao: (escalacao: Escalacao, assistente: boolean) => void;
   decidir: (aceitar: boolean) => void;
@@ -203,6 +204,16 @@ export function ProvedorLiga({ children }: { children: ReactNode }) {
     }
   }, [aplicar, clienteLogado]);
 
+  const entrarMundo = useCallback(async (nomeClube: string) => {
+    try {
+      const api = await clienteLogado();
+      aplicar(await api.entrarMundo(nomeClube));
+      setLigas(await api.ligas());
+    } catch (erro) {
+      throw new Error(mensagemDe(erro));
+    }
+  }, [aplicar, clienteLogado]);
+
   const executar = useCallback(async (acao: (api: Cliente, id: string) => Promise<VisaoLiga>) => {
     const id = ligaAberta.current;
     const api = clienteRef.current;
@@ -266,6 +277,7 @@ export function ProvedorLiga({ children }: { children: ReactNode }) {
     selecionar,
     criar,
     entrar,
+    entrarMundo,
     iniciar,
     salvarEscalacao,
     decidir,
@@ -274,7 +286,7 @@ export function ProvedorLiga({ children }: { children: ReactNode }) {
     leiloar,
     darLance,
   }), [
-    cliente, comprar, criar, darLance, decidir, entrar, entrarComGoogle, iniciar, leiloar, ligas, nomeTecnico, pronta, recarregar, sair,
+    cliente, comprar, criar, darLance, decidir, entrar, entrarComGoogle, entrarMundo, iniciar, leiloar, ligas, nomeTecnico, pronta, recarregar, sair,
     salvarEscalacao, selecionar, semConexao, vender, visao,
   ]);
 

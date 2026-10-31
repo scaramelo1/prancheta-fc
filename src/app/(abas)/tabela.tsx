@@ -5,12 +5,15 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Aviso, Carregando, Chip, Escudo } from '../../componentes/ui';
 import { DATAS_DOS_TORNEIOS, DATAS_POR_TORNEIO, diaDaData, horarioDaData } from '../../dominio/calendario';
 import { clubePorId, partidasDaRodada, tabelaDaCompeticao, tabelaGeral, torneioAtual } from '../../dominio/liga';
+import { SOBEM_POR_LIGA, numeroDaDivisao } from '../../dominio/mundo';
 import type { Liga, LinhaTabela } from '../../dominio/tipos';
 import { useLiga } from '../../hooks/useLiga';
 import { t } from '../../i18n';
 import { cores, espaco } from '../../tema';
 
-function Classificacao({ liga, linhas, meuId }: { liga: Liga; linhas: LinhaTabela[]; meuId: number }) {
+function Classificacao({ liga, linhas, meuId, zonas }: { liga: Liga; linhas: LinhaTabela[]; meuId: number; zonas: boolean }) {
+  const sobem = zonas && numeroDaDivisao(liga) > 1 ? SOBEM_POR_LIGA : 0;
+  const descem = zonas ? liga.descem ?? 0 : 0;
   return (
     <View style={estilos.lista}>
       <View style={estilos.linha}>
@@ -24,7 +27,16 @@ function Classificacao({ liga, linhas, meuId }: { liga: Liga; linhas: LinhaTabel
         const clube = clubePorId(liga, l.clubeId);
         return (
           <View key={l.clubeId} style={[estilos.linha, l.clubeId === meuId && estilos.linhaMinha]}>
-            <Text style={[estilos.celula, estilos.colPosicao]}>{i + 1}</Text>
+            <Text
+              style={[
+                estilos.celula,
+                estilos.colPosicao,
+                i < sobem && { color: cores.concluido, fontWeight: '800' },
+                i >= linhas.length - descem && { color: cores.erro, fontWeight: '800' },
+              ]}
+            >
+              {i + 1}
+            </Text>
             <View style={[estilos.flex, estilos.clube]}>
               <Escudo clube={clube} tamanho={26} />
               <Text style={estilos.nome} numberOfLines={1}>{clube.nome}</Text>
@@ -106,7 +118,8 @@ export default function Tabela() {
       </View>
       {vista === 'rodadas'
         ? <Rodadas liga={liga} meuId={meuClube.id} />
-        : <Classificacao liga={liga} linhas={linhas[vista]} meuId={meuClube.id} />}
+        : <Classificacao liga={liga} linhas={linhas[vista]} meuId={meuClube.id} zonas={liga.tipo === 'oficial' && vista === 'geral'} />}
+      {liga.tipo === 'oficial' && vista === 'geral' && <Text style={estilos.legenda}>{t.legendaZonas}</Text>}
     </ScrollView>
   );
 }
@@ -117,6 +130,7 @@ const estilos = StyleSheet.create({
   chips: { flexDirection: 'row', gap: espaco.p },
   chipsLinha: { flexDirection: 'row', flexWrap: 'wrap', gap: espaco.p },
   titulo: { color: cores.texto, fontSize: 16, fontWeight: '700' },
+  legenda: { color: cores.textoSuave, fontSize: 13, lineHeight: 19 },
   lista: { backgroundColor: cores.cartao, borderRadius: 12, overflow: 'hidden' },
   linha: {
     flexDirection: 'row',

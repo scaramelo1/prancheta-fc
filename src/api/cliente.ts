@@ -78,6 +78,7 @@ export function criarCliente(token: string, base = URL_API) {
       pedir<VisaoLiga>(base, '/ligas', token, 'POST', { nomeClube, duracao, dificuldade }),
     entrar: (codigo: string, nomeClube: string) =>
       pedir<VisaoLiga>(base, '/ligas/entrar', token, 'POST', { codigo, nomeClube }),
+    entrarMundo: (nomeClube: string) => pedir<VisaoLiga>(base, '/mundo/entrar', token, 'POST', { nomeClube }),
     iniciar: (id: string) => pedir<VisaoLiga>(base, `/ligas/${id}/iniciar`, token, 'POST'),
     salvarEscalacao: (id: string, escalacao: Escalacao, assistente: boolean) =>
       pedir<VisaoLiga>(base, `/ligas/${id}/escalacao`, token, 'PUT', { escalacao, assistente }),

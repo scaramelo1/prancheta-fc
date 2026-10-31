@@ -12,6 +12,7 @@ import {
 import { proximoInicio } from './agenda.ts';
 import type { Banco, Conta, RegistroLiga } from './banco.ts';
 import { emFila } from './fila.ts';
+import { entrarNoMundo } from './mundo.ts';
 import { LoginGoogle, paginaDeRetorno } from './google.ts';
 import type { ConfigGoogle, UsuarioGoogle } from './google.ts';
 
@@ -143,6 +144,7 @@ export function criarApi(banco: Banco, opcoes: OpcoesApi = {}): Server {
   async function autenticar(req: IncomingMessage): Promise<Conta> {
     const conta = await contaOpcional(req);
     if (!conta) throw new ErroHttp(401, 'Conta não reconhecida');
+    await banco.registrarAcesso(conta.id, relogio());
     return conta;
   }
 
@@ -256,12 +258,20 @@ export function criarApi(banco: Banco, opcoes: OpcoesApi = {}): Server {
       return ok(visaoDaLiga(registro, conta), 201);
     }
 
+    if (rota === 'POST /mundo/entrar') {
+      const nome = validarNomeClube((await lerCorpo(req)).nomeClube);
+      return ok(await emFila(async () => (
+        visaoDaLiga(await entrarNoMundo(banco, conta.id, nome, gerarCodigo, proximoInicio(relogio()) - 1), conta)
+      )));
+    }
+
     if (rota === 'POST /ligas/entrar') {
       const { codigo, nomeClube } = await lerCorpo(req);
       const nome = validarNomeClube(nomeClube);
       return ok(await emFila(async () => {
         const registro = await banco.ligaPorCodigo(String(codigo ?? '').trim().toUpperCase());
-        if (!registro) throw new ErroHttp(404, 'Código não encontrado');
+        // No Mundo Oficial, a vaga é definida pelo servidor, e não por código.
+        if (!registro || registro.liga.tipo === 'oficial') throw new ErroHttp(404, 'Código não encontrado');
         if (clubeDoDono(registro.liga, conta.id)) return visaoDaLiga(registro, conta);
         if (registro.liga.clubes.every((c) => c.donoId !== null)) throw new ErroHttp(409, 'A liga está cheia');
         const liga = entrarNaLiga(registro.liga, conta.id, nome);

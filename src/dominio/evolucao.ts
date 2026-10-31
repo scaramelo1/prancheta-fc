@@ -23,6 +23,13 @@ export const folhaSalarial = (clube: Clube) => clube.elenco.reduce((soma, j) => 
 /** Prêmio de uma liga: do campeão ao último, com o mesmo degrau entre as posições. */
 export const premioDaLiga = (posicao: number) => (21 - posicao) * 75_000;
 
+/** Quanto mais alta a divisão, mais rendem bilheteria e prêmios. Ligas de amigos valem 1. */
+export function fatorDaDivisao(divisao: string | null) {
+  if (divisao === '1') return 3;
+  if (divisao === '2') return 2;
+  return divisao === '3' ? 1.5 : 1;
+}
+
 export const PREMIOS = {
   copa: { campeao: 800_000, vice: 400_000 },
   prata: { campeao: 200_000 },

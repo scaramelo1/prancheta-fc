@@ -11,6 +11,7 @@ import { estrelasDe } from '../../dominio/estrelas';
 import {
   clubePorId, partidaDoClube, tabelaDaCompeticao, tabelaGeral, temporadaEncerrada, torneioAtual, ultimaPartidaDoClube,
 } from '../../dominio/liga';
+import { numeroDaDivisao } from '../../dominio/mundo';
 import { explicarPartida } from '../../dominio/resumo';
 import type { Clube, Dificuldade, DuracaoLiga, Partida } from '../../dominio/tipos';
 import { useLiga } from '../../hooks/useLiga';
@@ -27,7 +28,7 @@ const abrirPartida = (id: number) =>
 const nomeValido = (nome: string) => nome.trim().length >= 3 && nome.trim().length <= 24;
 
 function Formularios({ aoVoltar }: { aoVoltar?: () => void }) {
-  const { criar, entrar } = useLiga();
+  const { criar, entrar, entrarMundo } = useLiga();
   const [nome, setNome] = useState('');
   const [codigo, setCodigo] = useState('');
   const [duracao, setDuracao] = useState<DuracaoLiga>('temporada');
@@ -81,6 +82,11 @@ function Formularios({ aoVoltar }: { aoVoltar?: () => void }) {
       />
       {erro && <Text style={estilos.erro}>{erro}</Text>}
 
+      <Text style={estilos.rotulo}>{t.mundoTitulo}</Text>
+      <Text style={estilos.suave}>{t.mundoTexto}</Text>
+      <Botao texto={t.entrarMundo} desativado={enviando} aoTocar={() => enviar(() => entrarMundo(nome))} />
+
+      <View style={estilos.separador} />
       <Text style={estilos.rotulo}>{t.duracaoLiga}</Text>
       <View style={estilos.linhaChips}>
         {DURACOES.map((d) => (
@@ -206,13 +212,14 @@ function Painel({ visao, clube, aoOutraLiga }: { visao: VisaoLiga; clube: Clube;
         <Escudo clube={clube} tamanho={56} />
         <View style={estilos.flex}>
           <Text style={estilos.titulo} numberOfLines={1}>{clube.nome}</Text>
+          {liga.tipo === 'oficial' && <Text style={estilos.rotuloCartao}>{t.divisaoGrupo(numeroDaDivisao(liga), liga.grupo ?? 0)}</Text>}
           <Text style={estilos.suave}>{t.posicaoAtual(posicao, tabela[posicao - 1].pontos)}</Text>
           <Text style={estilos.suave}>{t.nivelTime}: {nivelDoTime(clube)}</Text>
           <Text style={estilos.suave}>{t.saldo(clube.saldo.toLocaleString())}</Text>
         </View>
       </View>
 
-      {(!visao.iniciada || aguardaPrimeiroJogo) && <Convite visao={visao} />}
+      {liga.tipo !== 'oficial' && (!visao.iniciada || aguardaPrimeiroJogo) && <Convite visao={visao} />}
 
       {encerrada && (
         <View style={estilos.cartao}>

@@ -64,6 +64,11 @@ export interface Textos {
   sairTexto: string;
   cancelar: string;
   semLiga: string;
+  mundoTitulo: string;
+  mundoTexto: string;
+  entrarMundo: string;
+  divisaoGrupo: (divisao: number, grupo: number) => string;
+  legendaZonas: string;
   entrarTitulo: string;
   entrarTexto: string;
   codigoConvite: string;
@@ -198,6 +203,11 @@ const pt: Textos = {
   sairTexto: 'Seu clube continua salvo. É só entrar de novo com o Google.',
   cancelar: 'Cancelar',
   semLiga: 'Crie uma liga ou entre com um convite na aba Clube.',
+  mundoTitulo: 'Mundo Oficial',
+  mundoTexto: 'Jogue contra técnicos de todo lugar. Quem chega começa na última divisão e sobe por acesso.',
+  entrarMundo: 'Entrar no Mundo Oficial',
+  divisaoGrupo: (divisao, grupo) => `Divisão ${divisao} · Grupo ${String.fromCharCode(65 + grupo)}`,
+  legendaZonas: 'Na classificação geral, verde sobe e vermelho desce ao fim da temporada.',
   entrarTitulo: 'Tem um convite?',
   entrarTexto: 'Digite o código que seu amigo enviou. Você assume um clube da liga.',
   codigoConvite: 'Código do convite',
@@ -344,6 +354,11 @@ const en: Textos = {
   sairTexto: 'Your club stays saved. Just sign in with Google again.',
   cancelar: 'Cancel',
   semLiga: 'Create a league or use an invite in the Club tab.',
+  mundoTitulo: 'Official World',
+  mundoTexto: 'Play against managers everywhere. Newcomers start in the lowest division and earn promotion.',
+  entrarMundo: 'Join the Official World',
+  divisaoGrupo: (divisao, grupo) => `Division ${divisao} · Group ${String.fromCharCode(65 + grupo)}`,
+  legendaZonas: 'In the overall table, green is promoted and red is relegated at the end of the season.',
   entrarTitulo: 'Got an invite?',
   entrarTexto: 'Enter the code your friend sent. You will take over a club in the league.',
   codigoConvite: 'Invite code',
@@ -490,6 +505,11 @@ const es: Textos = {
   sairTexto: 'Tu club sigue guardado. Solo vuelve a entrar con Google.',
   cancelar: 'Cancelar',
   semLiga: 'Crea una liga o entra con una invitación en la pestaña Club.',
+  mundoTitulo: 'Mundo Oficial',
+  mundoTexto: 'Juega contra técnicos de todas partes. Quien llega empieza en la última división y asciende.',
+  entrarMundo: 'Entrar al Mundo Oficial',
+  divisaoGrupo: (divisao, grupo) => `División ${divisao} · Grupo ${String.fromCharCode(65 + grupo)}`,
+  legendaZonas: 'En la clasificación general, verde asciende y rojo desciende al final de la temporada.',
   entrarTitulo: '¿Tienes una invitación?',
   entrarTexto: 'Escribe el código que te envió tu amigo. Asumirás un club de la liga.',
   codigoConvite: 'Código de invitación',

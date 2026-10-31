@@ -94,7 +94,8 @@ function gerarElenco(rng: Rng, proximoId: () => number, forcaBase: number, jovem
 
 export interface OpcoesClubes {
   nomeClube: string;
-  donoId: string;
+  /** Null nas ligas do Mundo Oficial, que nascem só com clubes da máquina. */
+  donoId: string | null;
   dificuldade: Dificuldade;
   semente: number;
 }
@@ -106,7 +107,7 @@ export function gerarClubes({ nomeClube, donoId, dificuldade, semente }: OpcoesC
   const proximoId = () => ++ultimoId;
   const cidades = embaralhar(rng, CIDADES);
   const cores = embaralhar(rng, CORES);
-  const nomeLimpo = nomeClube.trim();
+  const nomeLimpo = donoId ? nomeClube.trim() : `${escolher(rng, PREFIXOS)} ${cidades[CLUBES_POR_LIGA - 1]}`;
 
   const clubes: Clube[] = [{
     id: 0,
@@ -114,7 +115,7 @@ export function gerarClubes({ nomeClube, donoId, dificuldade, semente }: OpcoesC
     sigla: gerarSigla(nomeLimpo),
     cor: cores[0],
     donoId,
-    personalidade: null,
+    personalidade: donoId ? null : 'equilibrado',
     elenco: gerarElenco(rng, proximoId, FORCA_HUMANO, false),
     escalacao: null,
     assistente: true,

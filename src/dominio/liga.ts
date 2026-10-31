@@ -5,7 +5,7 @@ import {
 } from './calendario.ts';
 import { escalacaoParaJogo, melhorEscalacao, vagasDaFormacao } from './escalacao.ts';
 import {
-  BILHETERIA, ENERGIA_GASTA_NO_JOGO, ENERGIA_RECUPERADA_POR_DATA, PREMIOS, evoluirClubes, folhaSalarial, premioDaLiga,
+  BILHETERIA, ENERGIA_GASTA_NO_JOGO, ENERGIA_RECUPERADA_POR_DATA, PREMIOS, evoluirClubes, fatorDaDivisao, folhaSalarial, premioDaLiga,
 } from './evolucao.ts';
 import { gerarClubes, gerarSigla } from './geracao.ts';
 import type { OpcoesClubes } from './geracao.ts';
@@ -52,7 +52,7 @@ function gerarTorneio(liga: Liga, torneio: number) {
 
 export function criarLiga(id: string, opcoes: OpcoesClubes & { duracao: DuracaoLiga }): Liga {
   const clubes = gerarClubes(opcoes);
-  clubes[0].escalacao = melhorEscalacao(clubes[0], '4-4-2', 'equilibrado');
+  if (opcoes.donoId) clubes[0].escalacao = melhorEscalacao(clubes[0], '4-4-2', 'equilibrado');
   const liga: Liga = {
     id,
     tipo: 'amigos',
@@ -185,7 +185,7 @@ export function tabelaDaCompeticao(liga: Liga, competicao: Competicao, torneio?:
 export const tabelaGeral = (liga: Liga) => tabelaDaCompeticao(liga, 'liga');
 
 function premiar(liga: Liga, clubeId: number, valor: number) {
-  clubePorId(liga, clubeId).saldo += valor;
+  clubePorId(liga, clubeId).saldo += Math.round(valor * fatorDaDivisao(liga.divisao));
 }
 
 function registrarTitulo(liga: Liga, competicao: Competicao, torneio: number, clubeId: number) {
@@ -331,7 +331,7 @@ function jogarPartida(liga: Liga, partida: Partida) {
       if (titulares.has(j.id)) j.energia = Math.max(0, j.energia - ENERGIA_GASTA_NO_JOGO);
     }
   }
-  casa.saldo += BILHETERIA;
+  casa.saldo += Math.round(BILHETERIA * fatorDaDivisao(liga.divisao));
 
   // São quase 1.700 jogos por temporada: entre clubes da máquina, guarda só o essencial.
   const temHumano = casa.donoId !== null || fora.donoId !== null;

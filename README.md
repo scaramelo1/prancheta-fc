@@ -48,6 +48,17 @@ antes de pagar, então não é caixa surpresa.
   craques de graça. O maior lance fica reservado; sem saldo no fim, o jogador fica onde está.
 - O elenco tem de 16 a 30 jogadores e pelo menos um goleiro. Nenhum leilão atravessa a virada da temporada.
 
+## Mundo Oficial
+
+- As ligas são sempre de 20 clubes e formam uma pirâmide: 1 liga na divisão 1, 2 na divisão 2, 4 na 3...
+- O técnico entra na divisão mais baixa que existe e assume um clube da máquina, herdando os pontos dele.
+  Sem vaga, abre a próxima liga, que joga depressa até alcançar o calendário das outras.
+- No fim da temporada, a liga manda os 4 últimos para baixo, 2 para cada liga logo abaixo, e recebe os 2
+  primeiros de cada uma. O desempate é a classificação geral. Sem ligas abaixo, ninguém cai.
+- Bilheteria e prêmios valem 3 vezes na divisão 1, 2 vezes na 2 e 1,5 vez na 3.
+- A máquina se reforça com o próprio saldo para acompanhar os técnicos da liga, sem bônus escondido.
+- Técnico sem abrir o app por 120 dias devolve o clube à máquina na virada da temporada.
+
 ## Motor
 
 `src/dominio` é TypeScript puro, sem Expo, para o servidor usar o mesmo código. A semente faz a mesma
@@ -60,7 +71,7 @@ equilíbrio entre formações.
 ## Situação
 
 O jogo é online: a liga fica no servidor, e no aparelho (expo-sqlite) ficam só a conta e a última liga
-aberta. Faltam login com a Apple, exclusão de conta, notificações e o Mundo Oficial. Os campos `tipo`, `divisao`, `temporada` e `donoId` da
+aberta. Faltam login com a Apple, exclusão de conta e notificações. Os campos `tipo`, `divisao`, `temporada` e `donoId` da
 liga já estão no modelo para isso.
 
 ## Servidor

@@ -127,6 +127,10 @@ export interface Liga {
   tipo: TipoCampeonato;
   /** Preenchida só no Mundo Oficial. */
   divisao: string | null;
+  /** Posição dentro da divisão, a partir de 0. */
+  grupo?: number;
+  /** Clubes que caem ao fim da temporada: 2 por liga aberta logo abaixo. */
+  descem?: number;
   temporada: number;
   dificuldade: Dificuldade;
   duracao: DuracaoLiga;

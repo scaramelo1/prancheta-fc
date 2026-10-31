@@ -137,6 +137,26 @@ describe('API', () => {
     assert.equal((await chamar('POST', `${rota}/mercado/vender`, await novaConta(), { jogadorId: 1 })).status, 404);
   });
 
+  it('Mundo Oficial: 20 técnicos enchem a divisão 1 e o próximo abre a divisão 2', async () => {
+    const entrar = async (token: string, n: number) =>
+      (await chamar('POST', '/mundo/entrar', token, { nomeClube: `Clube ${n}` })).corpo;
+    const tokens: string[] = [];
+    for (let n = 0; n < 20; n++) tokens.push(await novaConta());
+    const primeiro = await entrar(tokens[0], 0);
+    assert.equal(primeiro.liga.divisao, '1');
+    assert.equal(primeiro.iniciada, true);
+    for (let n = 1; n < 20; n++) assert.equal((await entrar(tokens[n], n)).id, primeiro.id);
+    assert.equal((await entrar(tokens[3], 3)).liga.clubes.filter((c: any) => c.donoId).length, 20, 'entrar de novo não ocupa outra vaga');
+
+    const novato = await novaConta();
+    const segunda = await entrar(novato, 21);
+    assert.equal(segunda.liga.divisao, '2');
+    assert.equal(segunda.liga.grupo, 0);
+    assert.equal(segunda.liga.temporada, primeiro.liga.temporada);
+    assert.equal((await chamar('POST', '/ligas/entrar', await novaConta(), { codigo: segunda.codigo, nomeClube: 'Intruso FC' })).status, 404);
+    assert.equal((await chamar('GET', `/ligas/${primeiro.id}`, tokens[0])).corpo.liga.descem, 2);
+  });
+
   it('quem não participa não vê a liga', async () => {
     const dono = await novaConta();
     const { corpo } = await chamar('POST', '/ligas', dono, { nomeClube: 'Clube do Dono' });

@@ -1,6 +1,12 @@
+import { randomBytes } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 
 import type { Liga } from '../src/dominio/tipos.ts';
+
+import type { ResumoOficial } from '../src/dominio/mundo.ts';
+
+/** Dona das ligas do Mundo Oficial: não é um técnico e nunca faz login. */
+export const CONTA_DO_MUNDO = 'mundo';
 
 export interface Conta {
   id: string;
@@ -33,6 +39,12 @@ export interface Banco {
   entrarNaLiga(ligaId: string, contaId: string): Promise<void>;
   contarLigasCriadas(contaId: string): Promise<number>;
   ligasAtrasadas(janela: number): Promise<string[]>;
+  sairDaLiga(ligaId: string, contaId: string): Promise<void>;
+  resumoOficiais(): Promise<ResumoOficial[]>;
+  registrarAcesso(contaId: string, quandoMs: number): Promise<void>;
+  contaInativa(contaId: string, limiteMs: number): Promise<boolean>;
+  /** Tudo o que acontecer dentro de `tarefa` vale junto, ou nada vale. */
+  transacao(tarefa: () => Promise<void>): Promise<void>;
   fechar(): Promise<void>;
 }
 
@@ -105,6 +117,9 @@ export class BancoSqlite implements Banco {
       this.db.exec('ALTER TABLE conta ADD COLUMN google_sub TEXT');
       this.db.exec('CREATE UNIQUE INDEX conta_google ON conta (google_sub)');
     }
+    if (!colunas.some((c) => c.name === 'ultimo_acesso')) this.db.exec('ALTER TABLE conta ADD COLUMN ultimo_acesso INTEGER');
+    this.db.prepare('INSERT OR IGNORE INTO conta (id, nome, token_hash) VALUES (?, ?, ?)')
+      .run(CONTA_DO_MUNDO, 'Mundo Oficial', randomBytes(32).toString('hex'));
   }
 
   async criarConta(id: string, nome: string, tokenHash: string) {
@@ -176,6 +191,42 @@ export class BancoSqlite implements Banco {
   async ligasAtrasadas(janela: number) {
     const linhas = this.db.prepare('SELECT id FROM liga WHERE janela IS NOT NULL AND janela < ?').all(janela);
     return (linhas as unknown as { id: string }[]).map((l) => l.id);
+  }
+
+  async sairDaLiga(ligaId: string, contaId: string) {
+    this.db.prepare('DELETE FROM membro WHERE liga_id = ? AND conta_id = ?').run(ligaId, contaId);
+  }
+
+  /** O próprio SQLite lê o JSON: assim a lista não carrega as ligas inteiras na memória. */
+  async resumoOficiais() {
+    const linhas = this.db.prepare(`
+      SELECT l.id,
+        CAST(json_extract(l.dados, '$.divisao') AS INTEGER) AS divisao,
+        json_extract(l.dados, '$.grupo') AS grupo,
+        (SELECT COUNT(*) FROM membro m WHERE m.liga_id = l.id AND m.conta_id <> ?) AS tecnicos
+      FROM liga l WHERE l.dono_id = ?
+    `).all(CONTA_DO_MUNDO, CONTA_DO_MUNDO);
+    return linhas as unknown as ResumoOficial[];
+  }
+
+  async registrarAcesso(contaId: string, quandoMs: number) {
+    this.db.prepare('UPDATE conta SET ultimo_acesso = ? WHERE id = ?').run(quandoMs, contaId);
+  }
+
+  async contaInativa(contaId: string, limiteMs: number) {
+    const linha = this.db.prepare('SELECT ultimo_acesso AS ms FROM conta WHERE id = ?').get(contaId) as { ms: number | null } | undefined;
+    return linha?.ms != null && linha.ms < limiteMs;
+  }
+
+  async transacao(tarefa: () => Promise<void>) {
+    this.db.exec('BEGIN');
+    try {
+      await tarefa();
+      this.db.exec('COMMIT');
+    } catch (erro) {
+      this.db.exec('ROLLBACK');
+      throw erro;
+    }
   }
 
   async fechar() {
