@@ -8,6 +8,7 @@ import { ErroApi, criarCliente, criarConta } from '../../src/api/cliente.ts';
 import { indiceDaJanela, janelaDoMeioDia, proximoInicio } from '../agenda.ts';
 import { criarApi } from '../api.ts';
 import { BancoSqlite } from '../banco.ts';
+import { paginaDeRetorno } from '../google.ts';
 import { processarRodadas } from '../rodadas.ts';
 
 /** 12:00 de Brasília em 1º de novembro de 2026. */
@@ -328,10 +329,18 @@ describe('login com Google', () => {
     return abrir(`/auth/google/inicio?retorno=${encodeURIComponent(retorno)}&desafio=${desafio}`);
   }
 
+  /** A volta ao app é uma página com um link, e não um redirecionamento. */
+  async function destinoDaVolta(volta: Response) {
+    assert.equal(volta.status, 200);
+    assert.equal(volta.headers.get('cache-control'), 'no-store');
+    const href = /<a href="([^"]+)"/.exec(await volta.text())?.[1] as string;
+    return new URL(href.replace(/&amp;/g, '&'));
+  }
+
   async function obterCodigo() {
     const google = new URL((await iniciar()).headers.get('location')!);
     const volta = await abrir(`/auth/google/retorno?code=abc&state=${google.searchParams.get('state')}`);
-    return new URL(volta.headers.get('location')!).searchParams;
+    return (await destinoDaVolta(volta)).searchParams;
   }
 
   const trocar = (codigo: unknown, verificador: unknown, token?: string) => fetch(`${base}/auth/google/trocar`, {
@@ -428,7 +437,14 @@ describe('login com Google', () => {
   it('quem cancelou no Google volta ao app com erro', async () => {
     const estado = new URL((await iniciar()).headers.get('location')!).searchParams.get('state');
     const volta = await abrir(`/auth/google/retorno?error=access_denied&state=${estado}`);
-    assert.equal(new URL(volta.headers.get('location')!).searchParams.get('erro'), '1');
+    assert.equal((await destinoDaVolta(volta)).searchParams.get('erro'), '1');
+  });
+
+  it('a página de retorno não deixa o endereço virar código', async () => {
+    const pagina = paginaDeRetorno('pranchetafc://login?x="></a><script>alert(1)</script>');
+    assert.ok(!pagina.includes('<script>alert'));
+    assert.equal(pagina.match(/<script>/g)?.length, 1);
+    assert.ok(!pagina.split('<script>')[1].slice(0, -30).includes('</script><'));
   });
 
   it('conta antiga sem Google mantém as ligas ao entrar', async () => {

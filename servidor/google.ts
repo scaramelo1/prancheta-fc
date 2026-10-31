@@ -34,6 +34,36 @@ interface CodigoPendente extends UsuarioGoogle {
   expira: number;
 }
 
+const escaparHtml = (texto: string) =>
+  texto.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+/**
+ * O Android pode bloquear o salto automático para o app quando ele vem depois de um redirecionamento,
+ * e o navegador fica parado em branco. Por isso a volta é uma página: tenta sozinha e, se não der,
+ * o toque no botão conta como gesto do usuário.
+ */
+export function paginaDeRetorno(destino: string) {
+  const href = escaparHtml(destino);
+  const script = JSON.stringify(destino).replace(/</g, '\\u003c');
+  return `<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prancheta FC</title>
+<style>
+body{margin:0;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:24px;box-sizing:border-box;background:#0B2A3A;color:#fff;font:16px system-ui,sans-serif;text-align:center}
+a{background:#fff;color:#1f1f1f;font-weight:700;text-decoration:none;padding:14px 28px;border-radius:10px}
+</style>
+</head>
+<body>
+<p>Login concluído.</p>
+<a href="${href}">Voltar ao Prancheta FC</a>
+<script>location.href=${script};</script>
+</body>
+</html>`;
+}
+
 const token = () => randomBytes(32).toString('base64url');
 
 const comParametros = (retorno: string, parametros: string) =>
