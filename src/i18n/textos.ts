@@ -23,6 +23,15 @@ export interface Textos {
   fases: Record<Fase, string>;
   semJogo: string;
   criarLiga: string;
+  loginTitulo: string;
+  loginTexto: string;
+  entrarGoogle: string;
+  loginPrivacidade: string;
+  erroLogin: string;
+  sair: string;
+  sairTitulo: string;
+  sairTexto: string;
+  cancelar: string;
   semLiga: string;
   entrarTitulo: string;
   entrarTexto: string;
@@ -114,6 +123,15 @@ const pt: Textos = {
   fases: { pontos: '', quartas: 'Quartas de final', semifinal: 'Semifinal', terceiro: 'Terceiro lugar', final: 'Final' },
   semJogo: 'Seu clube não joga nesta data.',
   criarLiga: 'Criar liga',
+  loginTitulo: 'Monte seu time e dispute a liga',
+  loginTexto: 'Entre para jogar com seus amigos e levar seu clube para qualquer celular.',
+  entrarGoogle: 'Entrar com o Google',
+  loginPrivacidade: 'Guardamos só o seu nome e um identificador da conta Google.',
+  erroLogin: 'Não foi possível entrar. Tente de novo.',
+  sair: 'Sair da conta',
+  sairTitulo: 'Sair da conta?',
+  sairTexto: 'Seu clube continua salvo. É só entrar de novo com o Google.',
+  cancelar: 'Cancelar',
   semLiga: 'Crie uma liga ou entre com um convite na aba Clube.',
   entrarTitulo: 'Tem um convite?',
   entrarTexto: 'Digite o código que seu amigo enviou. Você assume um clube da liga.',
@@ -217,6 +235,15 @@ const en: Textos = {
   fases: { pontos: '', quartas: 'Quarter-final', semifinal: 'Semi-final', terceiro: 'Third place', final: 'Final' },
   semJogo: 'Your club has no match on this date.',
   criarLiga: 'Create league',
+  loginTitulo: 'Build your team and fight for the league',
+  loginTexto: 'Sign in to play with friends and take your club to any phone.',
+  entrarGoogle: 'Sign in with Google',
+  loginPrivacidade: 'We only keep your name and a Google account identifier.',
+  erroLogin: 'Could not sign in. Please try again.',
+  sair: 'Sign out',
+  sairTitulo: 'Sign out?',
+  sairTexto: 'Your club stays saved. Just sign in with Google again.',
+  cancelar: 'Cancel',
   semLiga: 'Create a league or use an invite in the Club tab.',
   entrarTitulo: 'Got an invite?',
   entrarTexto: 'Enter the code your friend sent. You will take over a club in the league.',
@@ -320,6 +347,15 @@ const es: Textos = {
   fases: { pontos: '', quartas: 'Cuartos de final', semifinal: 'Semifinal', terceiro: 'Tercer puesto', final: 'Final' },
   semJogo: 'Tu club no juega en esta fecha.',
   criarLiga: 'Crear liga',
+  loginTitulo: 'Arma tu equipo y pelea por la liga',
+  loginTexto: 'Entra para jugar con tus amigos y llevar tu club a cualquier celular.',
+  entrarGoogle: 'Entrar con Google',
+  loginPrivacidade: 'Solo guardamos tu nombre y un identificador de la cuenta de Google.',
+  erroLogin: 'No se pudo entrar. Inténtalo de nuevo.',
+  sair: 'Cerrar sesión',
+  sairTitulo: '¿Cerrar sesión?',
+  sairTexto: 'Tu club sigue guardado. Solo vuelve a entrar con Google.',
+  cancelar: 'Cancelar',
   semLiga: 'Crea una liga o entra con una invitación en la pestaña Club.',
   entrarTitulo: '¿Tienes una invitación?',
   entrarTexto: 'Escribe el código que te envió tu amigo. Asumirás un club de la liga.',

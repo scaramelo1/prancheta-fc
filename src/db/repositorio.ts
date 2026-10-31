@@ -5,6 +5,9 @@ export async function lerConfig(db: SQLiteDatabase, chave: string) {
   return linha?.valor ?? null;
 }
 
+export const apagarConfig = (db: SQLiteDatabase, chave: string) =>
+  db.runAsync('DELETE FROM config WHERE chave = ?', chave);
+
 export const salvarConfig = (db: SQLiteDatabase, chave: string, valor: string) =>
   db.runAsync(
     'INSERT INTO config (chave, valor) VALUES (?, ?) ON CONFLICT (chave) DO UPDATE SET valor = excluded.valor',

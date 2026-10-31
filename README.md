@@ -35,7 +35,7 @@ equilíbrio entre formações.
 ## Situação
 
 O jogo é online: a liga fica no servidor, e no aparelho (expo-sqlite) ficam só a conta e a última liga
-aberta. Faltam login com recuperação de conta, notificações, transferências e o Mundo Oficial. Os campos `tipo`, `divisao`, `temporada` e `donoId` da
+aberta. Faltam login com a Apple, exclusão de conta, notificações, transferências e o Mundo Oficial. Os campos `tipo`, `divisao`, `temporada` e `donoId` da
 liga já estão no modelo para isso.
 
 ## Servidor
@@ -44,7 +44,9 @@ liga já estão no modelo para isso.
 banco fica na interface `Banco`, em `servidor/banco.ts`: para usar PostgreSQL, basta outra implementação.
 
 - Rodadas às 12h, 18h e 21h de Brasília. Se o servidor cair, as perdidas são jogadas na volta.
-- Conta anônima por token, guardado só como hash. Ainda não há e-mail nem recuperação de conta.
+- Login com o Google pelo navegador, com o servidor falando com o Google. Só o nome e o identificador
+  da conta são guardados; os tokens de sessão ficam só como hash. As credenciais vão em
+  `/etc/prancheta-fc.env` (`GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET`), fora do repositório.
 - Inicie com `npm run servidor`. Na VPS, use `servidor/prancheta-fc.service`, limitado a 150 MB.
 
 ## Rodar

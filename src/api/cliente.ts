@@ -51,10 +51,24 @@ async function pedir<T>(base: string, caminho: string, token: string | null, met
   return dados as T;
 }
 
+export interface Sessao {
+  token: string;
+  nome: string;
+}
+
+export const urlDoLogin = (retorno: string, desafio: string, base = URL_API) =>
+  `${base}/auth/google/inicio?retorno=${encodeURIComponent(retorno)}&desafio=${encodeURIComponent(desafio)}`;
+
+/** Troca o código recebido pelo navegador por uma sessão. O token atual preserva as ligas de quem já jogava. */
+export const trocarLoginGoogle = (codigo: string, verificador: string, tokenAtual: string | null, base = URL_API) =>
+  pedir<Sessao>(base, '/auth/google/trocar', tokenAtual, 'POST', { codigo, verificador });
+
 export const criarConta = (base = URL_API) => pedir<{ id: string; token: string }>(base, '/contas', null, 'POST');
 
 export function criarCliente(token: string, base = URL_API) {
   return {
+    eu: () => pedir<{ nome: string; google: boolean }>(base, '/eu', token),
+    sair: () => pedir<{ ok: boolean }>(base, '/sair', token, 'POST'),
     ligas: () => pedir<ResumoLiga[]>(base, '/ligas', token),
     liga: (id: string) => pedir<VisaoLiga>(base, `/ligas/${id}`, token),
     partida: (ligaId: string, id: number) => pedir<Partida>(base, `/ligas/${ligaId}/partidas/${id}`, token),

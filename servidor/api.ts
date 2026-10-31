@@ -9,6 +9,8 @@ import type { Dificuldade, DuracaoLiga, Escalacao, Liga } from '../src/dominio/t
 import { proximoInicio } from './agenda.ts';
 import type { Banco, Conta, RegistroLiga } from './banco.ts';
 import { emFila } from './fila.ts';
+import { LoginGoogle } from './google.ts';
+import type { ConfigGoogle } from './google.ts';
 
 const TAMANHO_MAXIMO_CORPO = 16_000;
 const LIGAS_POR_CONTA = 3;
@@ -97,7 +99,18 @@ function resumoDaLiga({ id, codigo, janela, liga }: RegistroLiga, conta: Conta) 
   };
 }
 
-export function criarApi(banco: Banco, relogio: () => number = Date.now, contasPorHora = 10): Server {
+export interface OpcoesApi {
+  relogio?: () => number;
+  contasPorHora?: number;
+  /** Conta sem Google: fica desligada no servidor real e serve aos testes. */
+  contasAnonimas?: boolean;
+  google?: ConfigGoogle;
+}
+
+export function criarApi(banco: Banco, opcoes: OpcoesApi = {}): Server {
+  const { relogio = Date.now, contasPorHora = 10, contasAnonimas = false, google } = opcoes;
+  const login = google ? new LoginGoogle(google, relogio) : null;
+
   const contasPorIp = new Map<string, { hora: number; total: number }>();
 
   function limitarContas(req: IncomingMessage) {
@@ -113,9 +126,18 @@ export function criarApi(banco: Banco, relogio: () => number = Date.now, contasP
     }
   }
 
-  async function autenticar(req: IncomingMessage): Promise<Conta> {
+  function tokenDe(req: IncomingMessage) {
     const [tipo, token] = String(req.headers.authorization ?? '').split(' ');
-    const conta = tipo === 'Bearer' && token ? await banco.contaPorToken(hashDoToken(token)) : null;
+    return tipo === 'Bearer' && token ? token : null;
+  }
+
+  async function contaOpcional(req: IncomingMessage) {
+    const token = tokenDe(req);
+    return token ? banco.contaPorToken(hashDoToken(token)) : null;
+  }
+
+  async function autenticar(req: IncomingMessage): Promise<Conta> {
+    const conta = await contaOpcional(req);
     if (!conta) throw new ErroHttp(401, 'Conta não reconhecida');
     return conta;
   }
@@ -128,14 +150,55 @@ export function criarApi(banco: Banco, relogio: () => number = Date.now, contasP
   }
 
   async function atender(req: IncomingMessage, res: ServerResponse) {
-    const { pathname } = new URL(req.url ?? '/', 'http://localhost');
+    const { pathname, searchParams: params } = new URL(req.url ?? '/', 'http://localhost');
     const rota = `${req.method} ${pathname}`;
     const [, , ligaId, recurso, recursoId] = pathname.split('/');
     const ok = (corpo: unknown, status = 200) => responder(req, res, status, corpo);
 
     if (rota === 'GET /saude') return ok({ ok: true });
 
+    if (rota === 'GET /auth/google/inicio') {
+      if (!login) throw new ErroHttp(503, 'Login com Google indisponível');
+      const destino = login.iniciar(params.get('retorno'), params.get('desafio'));
+      if (!destino) throw new ErroHttp(400, 'Pedido de login inválido');
+      res.writeHead(302, { Location: destino, 'Cache-Control': 'no-store' });
+      res.end();
+      return undefined;
+    }
+
+    if (rota === 'GET /auth/google/retorno') {
+      if (!login) throw new ErroHttp(503, 'Login com Google indisponível');
+      const destino = await login.concluir(params.get('code'), params.get('state'));
+      if (!destino) throw new ErroHttp(400, 'Login expirado; tente de novo');
+      res.writeHead(302, { Location: destino, 'Cache-Control': 'no-store' });
+      res.end();
+      return undefined;
+    }
+
+    if (rota === 'POST /auth/google/trocar') {
+      if (!login) throw new ErroHttp(503, 'Login com Google indisponível');
+      const { codigo, verificador } = await lerCorpo(req);
+      const usuario = login.trocar(String(codigo ?? ''), String(verificador ?? ''));
+      if (!usuario) throw new ErroHttp(401, 'Login expirado; tente de novo');
+
+      return ok(await emFila(async () => {
+        let conta = await banco.contaPorGoogle(usuario.sub);
+        if (!conta) {
+          // Quem já jogava neste aparelho mantém as ligas ao entrar com o Google.
+          const atual = await contaOpcional(req);
+          const id = atual && !atual.google ? atual.id : randomUUID();
+          if (id !== atual?.id) await banco.criarConta(id, usuario.nome, hashDoToken(randomBytes(32).toString('base64url')));
+          await banco.vincularGoogle(id, usuario.sub, usuario.nome);
+          conta = { id, nome: usuario.nome, google: true };
+        }
+        const token = randomBytes(32).toString('base64url');
+        await banco.criarSessao(conta.id, hashDoToken(token));
+        return { token, nome: conta.nome };
+      }));
+    }
+
     if (rota === 'POST /contas') {
+      if (!contasAnonimas) throw new ErroHttp(404, 'Rota não encontrada');
       limitarContas(req);
       const token = randomBytes(32).toString('base64url');
       const id = randomUUID();
@@ -144,6 +207,13 @@ export function criarApi(banco: Banco, relogio: () => number = Date.now, contasP
     }
 
     const conta = await autenticar(req);
+
+    if (rota === 'GET /eu') return ok({ nome: conta.nome, google: conta.google });
+
+    if (rota === 'POST /sair') {
+      await banco.apagarSessao(hashDoToken(tokenDe(req) as string));
+      return ok({ ok: true });
+    }
 
     if (rota === 'GET /ligas') {
       return ok((await banco.ligasDaConta(conta.id)).map((r) => resumoDaLiga(r, conta)));

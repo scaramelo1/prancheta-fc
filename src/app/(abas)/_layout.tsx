@@ -1,7 +1,8 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Tabs } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
 import type { ComponentProps } from 'react';
 
+import { useLiga } from '../../hooks/useLiga';
 import { t } from '../../i18n';
 import { cores } from '../../tema';
 
@@ -15,6 +16,9 @@ function icone(nome: NomeIcone) {
 }
 
 export default function AbasLayout() {
+  const { pronta, semConexao, nomeTecnico } = useLiga();
+  if (pronta && !semConexao && !nomeTecnico) return <Redirect href="/login" />;
+
   return (
     <Tabs
       screenOptions={{

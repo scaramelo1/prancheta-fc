@@ -5,6 +5,7 @@ import type { Liga } from '../src/dominio/tipos.ts';
 export interface Conta {
   id: string;
   nome: string;
+  google: boolean;
 }
 
 export interface RegistroLiga {
@@ -20,6 +21,10 @@ export interface RegistroLiga {
 export interface Banco {
   criarConta(id: string, nome: string, tokenHash: string): Promise<void>;
   contaPorToken(tokenHash: string): Promise<Conta | null>;
+  contaPorGoogle(googleSub: string): Promise<Conta | null>;
+  vincularGoogle(contaId: string, googleSub: string, nome: string): Promise<void>;
+  criarSessao(contaId: string, tokenHash: string): Promise<void>;
+  apagarSessao(tokenHash: string): Promise<void>;
   criarLiga(registro: RegistroLiga): Promise<void>;
   salvarLiga(id: string, liga: Liga, janela: number | null): Promise<void>;
   ligaPorId(id: string): Promise<RegistroLiga | null>;
@@ -30,6 +35,14 @@ export interface Banco {
   ligasAtrasadas(janela: number): Promise<string[]>;
   fechar(): Promise<void>;
 }
+
+interface LinhaConta {
+  id: string;
+  nome: string;
+  google_sub: string | null;
+}
+
+const paraConta = (c: LinhaConta): Conta => ({ id: c.id, nome: c.nome, google: c.google_sub !== null });
 
 interface LinhaLiga {
   id: string;
@@ -77,16 +90,50 @@ export class BancoSqlite implements Banco {
       );
 
       CREATE INDEX IF NOT EXISTS membro_conta ON membro (conta_id);
+
+      -- Uma conta pode estar aberta em mais de um aparelho.
+      CREATE TABLE IF NOT EXISTS sessao (
+        token_hash TEXT PRIMARY KEY,
+        conta_id TEXT NOT NULL REFERENCES conta (id) ON DELETE CASCADE,
+        criada_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+
+      INSERT OR IGNORE INTO sessao (token_hash, conta_id) SELECT token_hash, id FROM conta;
     `);
+    const colunas = this.db.prepare('PRAGMA table_info(conta)').all() as unknown as { name: string }[];
+    if (!colunas.some((c) => c.name === 'google_sub')) {
+      this.db.exec('ALTER TABLE conta ADD COLUMN google_sub TEXT');
+      this.db.exec('CREATE UNIQUE INDEX conta_google ON conta (google_sub)');
+    }
   }
 
   async criarConta(id: string, nome: string, tokenHash: string) {
     this.db.prepare('INSERT INTO conta (id, nome, token_hash) VALUES (?, ?, ?)').run(id, nome, tokenHash);
+    await this.criarSessao(id, tokenHash);
   }
 
   async contaPorToken(tokenHash: string) {
-    const linha = this.db.prepare('SELECT id, nome FROM conta WHERE token_hash = ?').get(tokenHash);
-    return (linha as unknown as Conta | undefined) ?? null;
+    const linha = this.db.prepare(
+      'SELECT c.id, c.nome, c.google_sub FROM conta c JOIN sessao s ON s.conta_id = c.id WHERE s.token_hash = ?',
+    ).get(tokenHash);
+    return linha ? paraConta(linha as unknown as LinhaConta) : null;
+  }
+
+  async contaPorGoogle(googleSub: string) {
+    const linha = this.db.prepare('SELECT id, nome, google_sub FROM conta WHERE google_sub = ?').get(googleSub);
+    return linha ? paraConta(linha as unknown as LinhaConta) : null;
+  }
+
+  async vincularGoogle(contaId: string, googleSub: string, nome: string) {
+    this.db.prepare('UPDATE conta SET google_sub = ?, nome = ? WHERE id = ?').run(googleSub, nome, contaId);
+  }
+
+  async criarSessao(contaId: string, tokenHash: string) {
+    this.db.prepare('INSERT INTO sessao (token_hash, conta_id) VALUES (?, ?)').run(tokenHash, contaId);
+  }
+
+  async apagarSessao(tokenHash: string) {
+    this.db.prepare('DELETE FROM sessao WHERE token_hash = ?').run(tokenHash);
   }
 
   async criarLiga({ id, codigo, donoId, janela, liga }: RegistroLiga) {

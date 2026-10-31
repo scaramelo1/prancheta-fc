@@ -1,0 +1,143 @@
+import { createHash, randomBytes } from 'node:crypto';
+
+const URL_AUTORIZACAO = 'https://accounts.google.com/o/oauth2/v2/auth';
+const URL_TOKEN = 'https://oauth2.googleapis.com/token';
+const EMISSORES = ['https://accounts.google.com', 'accounts.google.com'];
+const VALIDADE_LOGIN_MS = 10 * 60_000;
+const VALIDADE_CODIGO_MS = 2 * 60_000;
+const MAXIMO_PENDENTES = 5_000;
+/** Só o próprio app recebe o código: pranchetafc:// no build, exp:// no Expo Go. */
+const RETORNO_VALIDO = /^(pranchetafc|exp|exps):\/\/[^\s]*$/;
+const DESAFIO_VALIDO = /^[A-Za-z0-9_-]{43}$/;
+
+export interface ConfigGoogle {
+  clientId: string;
+  clientSecret: string;
+  urlPublica: string;
+  /** Troca o código do Google pelo id_token; os testes substituem esta chamada. */
+  trocarCodigo?: (codigo: string) => Promise<string>;
+}
+
+export interface UsuarioGoogle {
+  sub: string;
+  nome: string;
+}
+
+interface LoginPendente {
+  retorno: string;
+  desafio: string;
+  expira: number;
+}
+
+interface CodigoPendente extends UsuarioGoogle {
+  desafio: string;
+  expira: number;
+}
+
+const token = () => randomBytes(32).toString('base64url');
+
+const comParametros = (retorno: string, parametros: string) =>
+  `${retorno}${retorno.includes('?') ? '&' : '?'}${parametros}`;
+
+/**
+ * O app abre o navegador, o Google devolve aqui, e o código volta ao app por deep link.
+ * Funciona no Expo Go, ao contrário das bibliotecas nativas. O desafio (PKCE) impede que
+ * outro app que capture o deep link use o código.
+ */
+export class LoginGoogle {
+  private logins = new Map<string, LoginPendente>();
+  private codigos = new Map<string, CodigoPendente>();
+  private config: ConfigGoogle;
+  private relogio: () => number;
+
+  constructor(config: ConfigGoogle, relogio: () => number) {
+    this.config = config;
+    this.relogio = relogio;
+  }
+
+  private get redirectUri() {
+    return `${this.config.urlPublica}/auth/google/retorno`;
+  }
+
+  private limpar<T extends { expira: number }>(mapa: Map<string, T>) {
+    const agora = this.relogio();
+    for (const [chave, item] of mapa) if (item.expira <= agora) mapa.delete(chave);
+    if (mapa.size >= MAXIMO_PENDENTES) mapa.clear();
+  }
+
+  iniciar(retorno: string | null, desafio: string | null) {
+    if (!retorno || !desafio || !RETORNO_VALIDO.test(retorno) || !DESAFIO_VALIDO.test(desafio)) return null;
+    this.limpar(this.logins);
+    const estado = token();
+    this.logins.set(estado, { retorno, desafio, expira: this.relogio() + VALIDADE_LOGIN_MS });
+
+    const url = new URL(URL_AUTORIZACAO);
+    url.search = new URLSearchParams({
+      client_id: this.config.clientId,
+      redirect_uri: this.redirectUri,
+      response_type: 'code',
+      scope: 'openid profile',
+      state: estado,
+      prompt: 'select_account',
+    }).toString();
+    return url.toString();
+  }
+
+  private async pedirIdToken(codigo: string) {
+    if (this.config.trocarCodigo) return this.config.trocarCodigo(codigo);
+    const resposta = await fetch(URL_TOKEN, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code: codigo,
+        client_id: this.config.clientId,
+        client_secret: this.config.clientSecret,
+        redirect_uri: this.redirectUri,
+        grant_type: 'authorization_code',
+      }),
+    });
+    if (!resposta.ok) throw new Error(`Google recusou o código: ${resposta.status}`);
+    return ((await resposta.json()) as { id_token: string }).id_token;
+  }
+
+  /** O id_token vem direto do Google por HTTPS, então basta conferir os campos, sem checar a assinatura. */
+  private lerUsuario(idToken: string): UsuarioGoogle | null {
+    const dados = JSON.parse(Buffer.from(idToken.split('.')[1], 'base64url').toString('utf8')) as Record<string, unknown>;
+    const valido = EMISSORES.includes(String(dados.iss))
+      && dados.aud === this.config.clientId
+      && Number(dados.exp) * 1000 > this.relogio()
+      && typeof dados.sub === 'string' && dados.sub.length > 0;
+    if (!valido) return null;
+    const nome = String(dados.given_name ?? dados.name ?? 'Técnico').slice(0, 40);
+    return { sub: dados.sub as string, nome };
+  }
+
+  /** Devolve para onde redirecionar; null quando o login é desconhecido ou expirou. */
+  async concluir(codigoGoogle: string | null, estado: string | null) {
+    const login = estado ? this.logins.get(estado) : undefined;
+    if (!estado || !login || login.expira <= this.relogio()) return null;
+    this.logins.delete(estado);
+
+    try {
+      const usuario = codigoGoogle ? this.lerUsuario(await this.pedirIdToken(codigoGoogle)) : null;
+      if (!usuario) return comParametros(login.retorno, 'erro=1');
+      this.limpar(this.codigos);
+      const codigo = token();
+      this.codigos.set(codigo, { ...usuario, desafio: login.desafio, expira: this.relogio() + VALIDADE_CODIGO_MS });
+      return comParametros(login.retorno, `codigo=${codigo}`);
+    } catch (erro) {
+      console.error('Falha no login com Google', erro);
+      return comParametros(login.retorno, 'erro=1');
+    }
+  }
+
+  /** Cada código vale uma tentativa: errar o verificador também o queima. */
+  trocar(codigo: string, verificador: string): UsuarioGoogle | null {
+    const pendente = this.codigos.get(codigo);
+    if (!pendente) return null;
+    this.codigos.delete(codigo);
+    const desafio = createHash('sha256').update(verificador).digest('base64url');
+    if (pendente.expira <= this.relogio() || desafio !== pendente.desafio) return null;
+    return { sub: pendente.sub, nome: pendente.nome };
+  }
+}

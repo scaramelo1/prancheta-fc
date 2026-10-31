@@ -12,7 +12,14 @@ const INTERVALO_MS = 30_000;
 
 mkdirSync(dirname(CAMINHO_BANCO), { recursive: true });
 const banco = new BancoSqlite(CAMINHO_BANCO);
-const api = criarApi(banco);
+const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET } = process.env;
+const URL_PUBLICA = process.env.URL_PUBLICA ?? 'https://fsadesigners.com.br/prancheta-api';
+if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) console.warn('Login com Google desligado: faltam as credenciais');
+const api = criarApi(banco, {
+  google: GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET
+    ? { clientId: GOOGLE_CLIENT_ID, clientSecret: GOOGLE_CLIENT_SECRET, urlPublica: URL_PUBLICA }
+    : undefined,
+});
 
 let processando = false;
 async function rodarAgenda() {

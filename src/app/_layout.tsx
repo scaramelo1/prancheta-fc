@@ -19,6 +19,7 @@ export default function RootLayout() {
           }}
         >
           <Stack.Screen name="(abas)" options={{ headerShown: false }} />
+          <Stack.Screen name="login" options={{ headerShown: false }} />
           <Stack.Screen name="partida/[id]" options={{ title: '' }} />
         </Stack>
       </ProvedorLiga>

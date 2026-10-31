@@ -8,6 +8,8 @@ After=network.target
 WorkingDirectory=/var/www/prancheta-fc
 ExecStart=/usr/bin/env node --no-warnings --max-old-space-size=110 servidor/index.ts
 Environment=PORTA=3100
+# Credenciais do Google: arquivo só do root, fora do repositório.
+EnvironmentFile=-/etc/prancheta-fc.env
 Environment=BANCO=/var/lib/prancheta-fc/prancheta.db
 DynamicUser=yes
 StateDirectory=prancheta-fc

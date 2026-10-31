@@ -1,4 +1,5 @@
 /// <reference types="node" />
+import { createHash } from 'node:crypto';
 import { after, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import type { AddressInfo } from 'node:net';
@@ -35,7 +36,7 @@ describe('agenda', () => {
 describe('API', () => {
   let agora = MEIO_DIA - HORA;
   const banco = new BancoSqlite(':memory:');
-  const api = criarApi(banco, () => agora, 1000);
+  const api = criarApi(banco, { relogio: () => agora, contasPorHora: 1000, contasAnonimas: true });
   let base = '';
 
   async function chamar(metodo: string, caminho: string, token?: string, corpo?: unknown) {
@@ -204,7 +205,7 @@ describe('limite de contas', () => {
   it('bloqueia abuso e libera na hora seguinte', async () => {
     let agora = MEIO_DIA;
     const banco = new BancoSqlite(':memory:');
-    const api = criarApi(banco, () => agora, 3);
+    const api = criarApi(banco, { relogio: () => agora, contasPorHora: 3, contasAnonimas: true });
     await new Promise<void>((pronto) => { api.listen(0, '127.0.0.1', pronto); });
     const url = `http://127.0.0.1:${(api.address() as AddressInfo).port}/contas`;
     const criar = async () => (await fetch(url, { method: 'POST' })).status;
@@ -223,7 +224,7 @@ describe('cliente do app', () => {
   it('faz o caminho completo: conta, liga, convite, início, rodada e narração', async () => {
     let agora = MEIO_DIA - HORA;
     const banco = new BancoSqlite(':memory:');
-    const api = criarApi(banco, () => agora, 100);
+    const api = criarApi(banco, { relogio: () => agora, contasPorHora: 100, contasAnonimas: true });
     await new Promise<void>((pronto) => { api.listen(0, '127.0.0.1', pronto); });
     const base = `http://127.0.0.1:${(api.address() as AddressInfo).port}`;
 
@@ -255,5 +256,180 @@ describe('cliente do app', () => {
 
   it('sem servidor, avisa com status 0', async () => {
     await assert.rejects(criarConta('http://127.0.0.1:9'), (e: ErroApi) => e.status === 0);
+  });
+});
+
+describe('login com Google', () => {
+  const VERIFICADOR = 'verificador-secreto-do-aparelho';
+  const DESAFIO = createHash('sha256').update(VERIFICADOR).digest('base64url');
+  const RETORNO = 'pranchetafc://login';
+  let agora = MEIO_DIA;
+  let perfil: Record<string, unknown> = {};
+  let trocas = 0;
+
+  const idToken = (dados: Record<string, unknown>) =>
+    `x.${Buffer.from(JSON.stringify(dados)).toString('base64url')}.y`;
+
+  const banco = new BancoSqlite(':memory:');
+  const api = criarApi(banco, {
+    relogio: () => agora,
+    contasPorHora: 1000,
+    contasAnonimas: true,
+    google: {
+      clientId: 'id-do-app',
+      clientSecret: 'segredo',
+      urlPublica: 'https://exemplo.test/api',
+      trocarCodigo: async () => {
+        trocas += 1;
+        return idToken(perfil);
+      },
+    },
+  });
+  let base = '';
+  const valido = (sub: string, nome = 'Ana Lima') => ({
+    iss: 'https://accounts.google.com', aud: 'id-do-app', exp: agora / 1000 + 600, sub, given_name: nome.split(' ')[0], name: nome,
+  });
+
+  const abrir = (caminho: string) => fetch(base + caminho, { redirect: 'manual' });
+
+  async function iniciar(retorno = RETORNO, desafio = DESAFIO) {
+    return abrir(`/auth/google/inicio?retorno=${encodeURIComponent(retorno)}&desafio=${desafio}`);
+  }
+
+  async function obterCodigo() {
+    const google = new URL((await iniciar()).headers.get('location')!);
+    const volta = await abrir(`/auth/google/retorno?code=abc&state=${google.searchParams.get('state')}`);
+    return new URL(volta.headers.get('location')!).searchParams;
+  }
+
+  const trocar = (codigo: unknown, verificador: unknown, token?: string) => fetch(`${base}/auth/google/trocar`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: JSON.stringify({ codigo, verificador }),
+  });
+
+  before(async () => {
+    await new Promise<void>((pronto) => { api.listen(0, '127.0.0.1', pronto); });
+    base = `http://127.0.0.1:${(api.address() as AddressInfo).port}`;
+  });
+
+  after(async () => {
+    await new Promise((pronto) => { api.close(pronto); });
+    await banco.fechar();
+  });
+
+  it('manda para o Google com o endereço de retorno certo', async () => {
+    const resposta = await iniciar();
+    assert.equal(resposta.status, 302);
+    const url = new URL(resposta.headers.get('location')!);
+    assert.equal(url.hostname, 'accounts.google.com');
+    assert.equal(url.searchParams.get('client_id'), 'id-do-app');
+    assert.equal(url.searchParams.get('redirect_uri'), 'https://exemplo.test/api/auth/google/retorno');
+    assert.equal(url.searchParams.get('scope'), 'openid profile');
+    assert.ok(!url.toString().includes('segredo'));
+  });
+
+  it('recusa endereço de retorno que não é do app', async () => {
+    for (const retorno of ['https://site-do-golpe.test/', 'javascript:alert(1)', 'pranchetafcx://login']) {
+      assert.equal((await iniciar(retorno)).status, 400, retorno);
+    }
+    assert.equal((await iniciar(RETORNO, '')).status, 400);
+  });
+
+  it('cria a conta, abre sessão e lembra quem é no próximo login', async () => {
+    perfil = valido('google-1');
+    const resposta = await trocar((await obterCodigo()).get('codigo'), VERIFICADOR);
+    assert.equal(resposta.status, 200);
+    const sessao = await resposta.json() as { token: string; nome: string };
+    assert.equal(sessao.nome, 'Ana');
+
+    const cliente = criarCliente(sessao.token, base);
+    assert.deepEqual(await cliente.eu(), { nome: 'Ana', google: true });
+    await cliente.criarLiga('Clube da Ana', 'torneio', 'normal');
+
+    const segunda = await (await trocar((await obterCodigo()).get('codigo'), VERIFICADOR)).json() as { token: string };
+    assert.notEqual(segunda.token, sessao.token);
+    assert.equal((await criarCliente(segunda.token, base).ligas()).length, 1);
+  });
+
+  it('o código sozinho não vale: exige o verificador e funciona uma vez só', async () => {
+    perfil = valido('google-2');
+    const codigo = (await obterCodigo()).get('codigo');
+    assert.equal((await trocar(codigo, 'verificador-errado')).status, 401);
+    assert.equal((await trocar(codigo, VERIFICADOR)).status, 401);
+
+    const outro = (await obterCodigo()).get('codigo');
+    assert.equal((await trocar(outro, VERIFICADOR)).status, 200);
+    assert.equal((await trocar(outro, VERIFICADOR)).status, 401);
+  });
+
+  it('o código expira', async () => {
+    perfil = valido('google-3');
+    const codigo = (await obterCodigo()).get('codigo');
+    agora += 10 * 60_000;
+    assert.equal((await trocar(codigo, VERIFICADOR)).status, 401);
+  });
+
+  it('recusa retorno com estado desconhecido ou repetido', async () => {
+    assert.equal((await abrir('/auth/google/retorno?code=abc&state=falso')).status, 400);
+    const estado = new URL((await iniciar()).headers.get('location')!).searchParams.get('state');
+    await abrir(`/auth/google/retorno?code=abc&state=${estado}`);
+    const antes = trocas;
+    assert.equal((await abrir(`/auth/google/retorno?code=abc&state=${estado}`)).status, 400);
+    assert.equal(trocas, antes);
+  });
+
+  it('recusa token do Google emitido para outro app, vencido ou de outro emissor', async () => {
+    for (const ruim of [
+      { ...valido('g'), aud: 'outro-app' },
+      { ...valido('g'), exp: agora / 1000 - 1 },
+      { ...valido('g'), iss: 'https://golpe.test' },
+      { ...valido('g'), sub: undefined },
+    ]) {
+      perfil = ruim;
+      const volta = await obterCodigo();
+      assert.equal(volta.get('erro'), '1');
+      assert.equal(volta.get('codigo'), null);
+    }
+  });
+
+  it('quem cancelou no Google volta ao app com erro', async () => {
+    const estado = new URL((await iniciar()).headers.get('location')!).searchParams.get('state');
+    const volta = await abrir(`/auth/google/retorno?error=access_denied&state=${estado}`);
+    assert.equal(new URL(volta.headers.get('location')!).searchParams.get('erro'), '1');
+  });
+
+  it('conta antiga sem Google mantém as ligas ao entrar', async () => {
+    const antiga = await criarConta(base);
+    const cliente = criarCliente(antiga.token, base);
+    await cliente.criarLiga('Clube Antigo', 'torneio', 'normal');
+    assert.equal((await cliente.eu()).google, false);
+
+    perfil = valido('google-4');
+    const resposta = await trocar((await obterCodigo()).get('codigo'), VERIFICADOR, antiga.token);
+    const { token } = await resposta.json() as { token: string };
+    const logado = criarCliente(token, base);
+    assert.equal((await logado.eu()).google, true);
+    assert.equal((await logado.ligas())[0].clube, 'Clube Antigo');
+  });
+
+  it('sair invalida só a sessão deste aparelho', async () => {
+    perfil = valido('google-5');
+    const sessao = async () => ((await (await trocar((await obterCodigo()).get('codigo'), VERIFICADOR)).json()) as { token: string }).token;
+    const [a, b] = [await sessao(), await sessao()];
+    await criarCliente(a, base).sair();
+    await assert.rejects(criarCliente(a, base).eu(), (e: ErroApi) => e.status === 401);
+    assert.equal((await criarCliente(b, base).eu()).google, true);
+  });
+
+  it('com as contas anônimas desligadas, só entra pelo Google', async () => {
+    const banco2 = new BancoSqlite(':memory:');
+    const fechada = criarApi(banco2);
+    await new Promise<void>((pronto) => { fechada.listen(0, '127.0.0.1', pronto); });
+    const url = `http://127.0.0.1:${(fechada.address() as AddressInfo).port}`;
+    assert.equal((await fetch(`${url}/contas`, { method: 'POST' })).status, 404);
+    assert.equal((await fetch(`${url}/auth/google/inicio`)).status, 503);
+    await new Promise((pronto) => { fechada.close(pronto); });
+    await banco2.fechar();
   });
 });

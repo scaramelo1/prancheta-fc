@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { RefreshControl, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, RefreshControl, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import type { VisaoLiga } from '../../api/cliente';
 import { Aviso, Botao, Carregando, Chip, Escudo } from '../../componentes/ui';
@@ -159,7 +159,7 @@ function Convite({ visao }: { visao: VisaoLiga }) {
 }
 
 function Painel({ visao, clube, aoOutraLiga }: { visao: VisaoLiga; clube: Clube; aoOutraLiga: () => void }) {
-  const { decidir, ligas, recarregar, selecionar } = useLiga();
+  const { decidir, ligas, nomeTecnico, recarregar, sair, selecionar } = useLiga();
   const { liga, decisao } = visao;
   const [atualizando, setAtualizando] = useState(false);
   const torneio = torneioAtual(liga);
@@ -173,6 +173,11 @@ function Painel({ visao, clube, aoOutraLiga }: { visao: VisaoLiga; clube: Clube;
   const foraIds = new Set(clube.elenco.filter((j) => j.rodadasFora > 0).map((j) => j.id));
   const desfalques = clube.assistente ? 0 : (clube.escalacao?.titulares.filter((e) => foraIds.has(e.jogadorId)).length ?? 0);
   const aguardaPrimeiroJogo = visao.iniciada && liga.rodadaAtual === 1 && liga.temporada === 1;
+
+  const confirmarSaida = () => Alert.alert(t.sairTitulo, t.sairTexto, [
+    { text: t.cancelar, style: 'cancel' },
+    { text: t.sair, style: 'destructive', onPress: sair },
+  ]);
 
   const atualizar = async () => {
     setAtualizando(true);
@@ -273,6 +278,7 @@ function Painel({ visao, clube, aoOutraLiga }: { visao: VisaoLiga; clube: Clube;
       )}
 
       <Botao secundario texto={t.outraLiga} aoTocar={aoOutraLiga} />
+      <Botao secundario texto={`${t.sair} (${nomeTecnico ?? ''})`} aoTocar={confirmarSaida} />
     </ScrollView>
   );
 }
