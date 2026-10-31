@@ -7,6 +7,34 @@ export type IdiomaApp = 'pt' | 'en' | 'es';
 export interface Textos {
   abaClube: string;
   abaElenco: string;
+  abaMercado: string;
+  abasMercado: { comprar: string; leiloes: string; vender: string };
+  saldoLivre: (valor: number) => string;
+  elencoTotal: (n: number) => string;
+  ofertaDe: (clube: string) => string;
+  dadosJogador: (idade: number, potencial: number) => string;
+  mercadoAjuda: string;
+  semOfertas: string;
+  comprarPor: (valor: string) => string;
+  confirmarCompra: (jogador: string, valor: string) => string;
+  venderAjuda: string;
+  venderPor: (valor: string) => string;
+  leiloar: string;
+  confirmarVenda: (jogador: string, valor: string) => string;
+  confirmarLeilao: (jogador: string, valor: string) => string;
+  leiloesAjuda: string;
+  semLeiloes: string;
+  lanceInicial: (valor: string) => string;
+  maiorLance: (valor: string, clube: string) => string;
+  encerraEm: (jogos: number) => string;
+  lanceDe: (valor: string) => string;
+  seuLanceLidera: string;
+  seuLeilao: string;
+  emLeilao: string;
+  ultimasNegociacoes: string;
+  negociacao: (jogador: string, de: string, para: string, valor: string) => string;
+  foraDaLiga: string;
+  confirmar: string;
   abaTabela: string;
   novaLigaTitulo: string;
   novaLigaTexto: string;
@@ -111,6 +139,34 @@ export interface Textos {
 const pt: Textos = {
   abaClube: 'Clube',
   abaElenco: 'Elenco',
+  abaMercado: 'Mercado',
+  abasMercado: { comprar: 'Comprar', leiloes: 'Leilões', vender: 'Vender' },
+  saldoLivre: (valor) => `Disponível: R$ ${valor.toLocaleString()}`,
+  elencoTotal: (n) => `${n} jogadores no elenco`,
+  ofertaDe: (clube) => `Vendido por ${clube}`,
+  dadosJogador: (idade, potencial) => `${idade} anos · potencial ${potencial}`,
+  mercadoAjuda: 'A lista muda todo dia. Cada clube da máquina vende um jogador por dia.',
+  semOfertas: 'Nenhum jogador à venda hoje.',
+  comprarPor: (valor) => `Comprar por R$ ${valor}`,
+  confirmarCompra: (jogador, valor) => `Comprar ${jogador} por R$ ${valor}?`,
+  venderAjuda: 'Venda rápida: o jogador deixa a liga. No leilão, os outros técnicos disputam e o valor pode subir.',
+  venderPor: (valor) => `Vender por R$ ${valor}`,
+  leiloar: 'Leiloar',
+  confirmarVenda: (jogador, valor) => `Vender ${jogador} por R$ ${valor}? Ele deixa a liga.`,
+  confirmarLeilao: (jogador, valor) => `Leiloar ${jogador} com lance inicial de R$ ${valor}? Não dá para cancelar.`,
+  leiloesAjuda: 'Leilões entre técnicos duram 2 dias. Seu maior lance fica reservado até o fim.',
+  semLeiloes: 'Nenhum leilão aberto.',
+  lanceInicial: (valor) => `Lance inicial: R$ ${valor}`,
+  maiorLance: (valor, clube) => `Maior lance: R$ ${valor} (${clube})`,
+  encerraEm: (jogos) => `Termina em ${jogos} ${jogos === 1 ? 'jogo' : 'jogos'}`,
+  lanceDe: (valor) => `Dar lance de R$ ${valor}`,
+  seuLanceLidera: 'Seu lance é o maior',
+  seuLeilao: 'Seu jogador',
+  emLeilao: 'Em leilão',
+  ultimasNegociacoes: 'Últimas negociações',
+  negociacao: (jogador, de, para, valor) => `${jogador}: ${de} → ${para} · R$ ${valor}`,
+  foraDaLiga: 'fora da liga',
+  confirmar: 'Confirmar',
   abaTabela: 'Tabela',
   novaLigaTitulo: 'Monte sua liga',
   novaLigaTexto: 'Dê um nome ao seu clube. As vagas sem amigos ficam com clubes da máquina.',
@@ -227,6 +283,34 @@ const pt: Textos = {
 const en: Textos = {
   abaClube: 'Club',
   abaElenco: 'Squad',
+  abaMercado: 'Market',
+  abasMercado: { comprar: 'Buy', leiloes: 'Auctions', vender: 'Sell' },
+  saldoLivre: (valor) => `Available: R$ ${valor.toLocaleString()}`,
+  elencoTotal: (n) => `${n} players in the squad`,
+  ofertaDe: (clube) => `Sold by ${clube}`,
+  dadosJogador: (idade, potencial) => `${idade} years · potential ${potencial}`,
+  mercadoAjuda: 'The list changes every day. Each computer club sells one player a day.',
+  semOfertas: 'No players for sale today.',
+  comprarPor: (valor) => `Buy for R$ ${valor}`,
+  confirmarCompra: (jogador, valor) => `Buy ${jogador} for R$ ${valor}?`,
+  venderAjuda: 'Quick sale: the player leaves the league. In an auction, other managers bid and the price can rise.',
+  venderPor: (valor) => `Sell for R$ ${valor}`,
+  leiloar: 'Auction',
+  confirmarVenda: (jogador, valor) => `Sell ${jogador} for R$ ${valor}? The player leaves the league.`,
+  confirmarLeilao: (jogador, valor) => `Auction ${jogador} with a starting bid of R$ ${valor}? This cannot be cancelled.`,
+  leiloesAjuda: 'Auctions between managers last 2 days. Your highest bid stays reserved until the end.',
+  semLeiloes: 'No open auctions.',
+  lanceInicial: (valor) => `Starting bid: R$ ${valor}`,
+  maiorLance: (valor, clube) => `Highest bid: R$ ${valor} (${clube})`,
+  encerraEm: (jogos) => `Ends in ${jogos} ${jogos === 1 ? 'match' : 'matches'}`,
+  lanceDe: (valor) => `Bid R$ ${valor}`,
+  seuLanceLidera: 'Your bid is the highest',
+  seuLeilao: 'Your player',
+  emLeilao: 'In auction',
+  ultimasNegociacoes: 'Latest deals',
+  negociacao: (jogador, de, para, valor) => `${jogador}: ${de} → ${para} · R$ ${valor}`,
+  foraDaLiga: 'out of the league',
+  confirmar: 'Confirm',
   abaTabela: 'Table',
   novaLigaTitulo: 'Set up your league',
   novaLigaTexto: 'Name your club. Places without friends go to computer clubs.',
@@ -343,6 +427,34 @@ const en: Textos = {
 const es: Textos = {
   abaClube: 'Club',
   abaElenco: 'Plantilla',
+  abaMercado: 'Mercado',
+  abasMercado: { comprar: 'Comprar', leiloes: 'Subastas', vender: 'Vender' },
+  saldoLivre: (valor) => `Disponible: R$ ${valor.toLocaleString()}`,
+  elencoTotal: (n) => `${n} jugadores en la plantilla`,
+  ofertaDe: (clube) => `Lo vende ${clube}`,
+  dadosJogador: (idade, potencial) => `${idade} años · potencial ${potencial}`,
+  mercadoAjuda: 'La lista cambia cada día. Cada club de la máquina vende un jugador por día.',
+  semOfertas: 'Ningún jugador a la venta hoy.',
+  comprarPor: (valor) => `Comprar por R$ ${valor}`,
+  confirmarCompra: (jogador, valor) => `¿Comprar a ${jogador} por R$ ${valor}?`,
+  venderAjuda: 'Venta rápida: el jugador deja la liga. En una subasta, los otros técnicos pujan y el valor puede subir.',
+  venderPor: (valor) => `Vender por R$ ${valor}`,
+  leiloar: 'Subastar',
+  confirmarVenda: (jogador, valor) => `¿Vender a ${jogador} por R$ ${valor}? Deja la liga.`,
+  confirmarLeilao: (jogador, valor) => `¿Subastar a ${jogador} con puja inicial de R$ ${valor}? No se puede cancelar.`,
+  leiloesAjuda: 'Las subastas entre técnicos duran 2 días. Tu mayor puja queda reservada hasta el final.',
+  semLeiloes: 'Ninguna subasta abierta.',
+  lanceInicial: (valor) => `Puja inicial: R$ ${valor}`,
+  maiorLance: (valor, clube) => `Mayor puja: R$ ${valor} (${clube})`,
+  encerraEm: (jogos) => `Termina en ${jogos} ${jogos === 1 ? 'partido' : 'partidos'}`,
+  lanceDe: (valor) => `Pujar R$ ${valor}`,
+  seuLanceLidera: 'Tu puja es la mayor',
+  seuLeilao: 'Tu jugador',
+  emLeilao: 'En subasta',
+  ultimasNegociacoes: 'Últimas operaciones',
+  negociacao: (jogador, de, para, valor) => `${jogador}: ${de} → ${para} · R$ ${valor}`,
+  foraDaLiga: 'fuera de la liga',
+  confirmar: 'Confirmar',
   abaTabela: 'Tabla',
   novaLigaTitulo: 'Arma tu liga',
   novaLigaTexto: 'Ponle nombre a tu club. Las plazas sin amigos son para clubes de la máquina.',

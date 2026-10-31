@@ -42,7 +42,7 @@ const seAposenta = (rng: Rng, j: Jogador) =>
   j.idade >= IDADE_LIMITE || (j.idade >= IDADE_APOSENTADORIA && rng() < PROB_APOSENTADORIA);
 
 /** Parte do auge de quem saiu, não do nível de fim de carreira: senão o clube enfraquece a cada geração. */
-function revelarJovem(rng: Rng, id: number, antigo: Jogador): Jogador {
+export function revelarJovem(rng: Rng, id: number, antigo: Jogador): Jogador {
   const forca = limitarNivel(antigo.potencial - inteiro(rng, 8, 16));
   return {
     id,

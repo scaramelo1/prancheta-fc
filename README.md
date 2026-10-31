@@ -5,6 +5,7 @@ temporada contra clubes da máquina. Todos os clubes e jogadores são fictícios
 
 - **Clube**: cria a liga de 20 clubes ou entra por código de convite, mostra o próximo jogo, a decisão
   do dia e o motivo do último resultado.
+- **Mercado**: compra de clubes da máquina, venda rápida e leilão entre técnicos.
 - **Elenco**: nível do time, formação, estilo de jogo, assistente, energia e troca de titulares.
 - **Tabela**: liga, copa, classificação geral e resultados por data.
 - **Partida**: narração minuto a minuto, estatísticas e filtro só com os gols.
@@ -29,6 +30,15 @@ Cada jogador tem nível de 30 a 100 (campo `forca`, junto com o teto `potencial`
 de 30 a 100, é a média dos 11 titulares do próximo jogo: quem joga fora de posição vale 70%, e vaga vazia
 vale zero. Um time inicial tem nível de 35 a 40. Ele acompanha a escalação, as lesões e a evolução dos jogadores, mas não a energia.
 
+## Transferências
+
+- **Mercado direto**: a cada dia, cada clube da máquina põe um jogador à venda e vende no máximo esse. O
+  preço é 125% do valor, e a máquina repõe a vaga com um jovem da mesma posição.
+- **Venda rápida**: paga 75% do valor, e o jogador deixa a liga.
+- **Leilão**: só entre técnicos. Dura 6 datas (2 dias) e começa em 75% do valor, para amigos não passarem
+  craques de graça. O maior lance fica reservado; sem saldo no fim, o jogador fica onde está.
+- O elenco tem de 16 a 30 jogadores e pelo menos um goleiro. Nenhum leilão atravessa a virada da temporada.
+
 ## Motor
 
 `src/dominio` é TypeScript puro, sem Expo, para o servidor usar o mesmo código. A semente faz a mesma
@@ -41,7 +51,7 @@ equilíbrio entre formações.
 ## Situação
 
 O jogo é online: a liga fica no servidor, e no aparelho (expo-sqlite) ficam só a conta e a última liga
-aberta. Faltam login com a Apple, exclusão de conta, notificações, transferências e o Mundo Oficial. Os campos `tipo`, `divisao`, `temporada` e `donoId` da
+aberta. Faltam login com a Apple, exclusão de conta, notificações e o Mundo Oficial. Os campos `tipo`, `divisao`, `temporada` e `donoId` da
 liga já estão no modelo para isso.
 
 ## Servidor

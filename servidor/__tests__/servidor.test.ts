@@ -104,6 +104,38 @@ describe('API', () => {
     assert.equal(corpo.liga.clubes.filter((c: any) => c.donoId !== null).length, 1);
   });
 
+  it('transferências: compra, venda e leilão pela API', async () => {
+    const dono = await novaConta();
+    const amigo = await novaConta();
+    const { corpo: criada } = await chamar('POST', '/ligas', dono, { nomeClube: 'Clube do Dono' });
+    await chamar('POST', '/ligas/entrar', amigo, { codigo: criada.codigo, nomeClube: 'Amigos FC' });
+    const rota = `/ligas/${criada.id}`;
+
+    const { corpo: visao } = await chamar('GET', rota, dono);
+    assert.equal(visao.mercado.length, 18);
+    const oferta = visao.mercado[0];
+    const { status, corpo: comprou } = await chamar('POST', `${rota}/mercado/comprar`, dono, { jogadorId: oferta.jogador.id });
+    assert.equal(status, 200);
+    assert.equal(comprou.liga.clubes.find((c: any) => c.id === comprou.meuClubeId).elenco.length, 23);
+    assert.equal((await chamar('POST', `${rota}/mercado/comprar`, amigo, { jogadorId: oferta.jogador.id })).status, 409);
+    assert.equal((await chamar('POST', `${rota}/mercado/comprar`, dono, {})).status, 400);
+
+    const meu = comprou.liga.clubes.find((c: any) => c.id === comprou.meuClubeId);
+    const reserva = meu.elenco.find((j: any) => !meu.escalacao.titulares.some((e: any) => e.jogadorId === j.id));
+    const { corpo: leiloou } = await chamar('POST', `${rota}/leiloes`, dono, { jogadorId: reserva.id });
+    const { inicial } = leiloou.liga.leiloes[0];
+    assert.equal((await chamar('POST', `${rota}/leiloes/${reserva.id}/lances`, dono, { valor: inicial })).status, 409);
+    const lance = await chamar('POST', `${rota}/leiloes/${reserva.id}/lances`, amigo, { valor: inicial });
+    assert.equal(lance.status, 200);
+    assert.equal(lance.corpo.liga.leiloes[0].lance.valor, inicial);
+
+    const vendido = meu.elenco.find((j: any) => j.id !== reserva.id && j.posicao === 'ATA');
+    const venda = await chamar('POST', `${rota}/mercado/vender`, dono, { jogadorId: vendido.id });
+    assert.equal(venda.status, 200);
+    assert.equal(venda.corpo.liga.transferencias[0].paraId, null);
+    assert.equal((await chamar('POST', `${rota}/mercado/vender`, await novaConta(), { jogadorId: 1 })).status, 404);
+  });
+
   it('quem não participa não vê a liga', async () => {
     const dono = await novaConta();
     const { corpo } = await chamar('POST', '/ligas', dono, { nomeClube: 'Clube do Dono' });

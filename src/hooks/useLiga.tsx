@@ -35,6 +35,10 @@ interface ValorLiga {
   iniciar: () => void;
   salvarEscalacao: (escalacao: Escalacao, assistente: boolean) => void;
   decidir: (aceitar: boolean) => void;
+  comprar: (jogadorId: number) => void;
+  vender: (jogadorId: number) => void;
+  leiloar: (jogadorId: number) => void;
+  darLance: (jogadorId: number, valor: number) => void;
 }
 
 const Contexto = createContext<ValorLiga | null>(null);
@@ -203,6 +207,22 @@ export function ProvedorLiga({ children }: { children: ReactNode }) {
     executar((api, id) => api.decidir(id, aceitar));
   }, [executar]);
 
+  const comprar = useCallback((jogadorId: number) => {
+    executar((api, id) => api.comprar(id, jogadorId));
+  }, [executar]);
+
+  const vender = useCallback((jogadorId: number) => {
+    executar((api, id) => api.vender(id, jogadorId));
+  }, [executar]);
+
+  const leiloar = useCallback((jogadorId: number) => {
+    executar((api, id) => api.leiloar(id, jogadorId));
+  }, [executar]);
+
+  const darLance = useCallback((jogadorId: number, valor: number) => {
+    executar((api, id) => api.darLance(id, jogadorId, valor));
+  }, [executar]);
+
   const valor = useMemo<ValorLiga>(() => ({
     pronta,
     semConexao,
@@ -221,9 +241,13 @@ export function ProvedorLiga({ children }: { children: ReactNode }) {
     iniciar,
     salvarEscalacao,
     decidir,
+    comprar,
+    vender,
+    leiloar,
+    darLance,
   }), [
-    cliente, criar, decidir, entrar, entrarComGoogle, iniciar, ligas, nomeTecnico, pronta, recarregar, sair,
-    salvarEscalacao, selecionar, semConexao, visao,
+    cliente, comprar, criar, darLance, decidir, entrar, entrarComGoogle, iniciar, leiloar, ligas, nomeTecnico, pronta, recarregar, sair,
+    salvarEscalacao, selecionar, semConexao, vender, visao,
   ]);
 
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>;

@@ -5,7 +5,10 @@ import { gzipSync } from 'node:zlib';
 
 import { aplicarDecisao, decisaoDoDia } from '../src/dominio/decisoes.ts';
 import { clubeDoDono, criarLiga, entrarNaLiga, escalacaoValida } from '../src/dominio/liga.ts';
-import type { Dificuldade, DuracaoLiga, Escalacao, Liga } from '../src/dominio/tipos.ts';
+import type { Clube, Dificuldade, DuracaoLiga, Escalacao, Liga } from '../src/dominio/tipos.ts';
+import {
+  ErroTransferencia, comprarDaMaquina, criarLeilao, darLance, ofertasDoDia, venderParaFora,
+} from '../src/dominio/transferencias.ts';
 import { proximoInicio } from './agenda.ts';
 import type { Banco, Conta, RegistroLiga } from './banco.ts';
 import { emFila } from './fila.ts';
@@ -77,6 +80,7 @@ function visaoDaLiga({ id, codigo, donoId, janela, liga }: RegistroLiga, conta: 
     iniciada: janela !== null,
     meuClubeId: clube?.id ?? null,
     decisao: clube ? decisaoDoDia(liga, clube) : null,
+    mercado: ofertasDoDia(liga),
     liga: {
       ...liga,
       partidas: liga.partidas.map((p) => (
@@ -263,6 +267,42 @@ export function criarApi(banco: Banco, opcoes: OpcoesApi = {}): Server {
       const partida = liga.partidas.find((p) => p.id === Number(recursoId));
       if (!partida) throw new ErroHttp(404, 'Partida não encontrada');
       return ok(partida);
+    }
+
+    /** Aplica uma regra de transferência dentro da fila, para dois técnicos não disputarem o mesmo jogador. */
+    const transferir = async (acao: (liga: Liga, clube: Clube, jogadorId: number) => Liga, jogadorId: unknown) => {
+      if (!Number.isInteger(jogadorId)) throw new ErroHttp(400, 'Informe o jogador');
+      return ok(await emFila(async () => {
+        const registro = await ligaDoMembro(ligaId, conta);
+        try {
+          const liga = acao(registro.liga, clubeDoDono(registro.liga, conta.id) as Clube, jogadorId as number);
+          await banco.salvarLiga(registro.id, liga, registro.janela);
+          return visaoDaLiga({ ...registro, liga }, conta);
+        } catch (erro) {
+          if (erro instanceof ErroTransferencia) throw new ErroHttp(409, erro.message);
+          throw erro;
+        }
+      }));
+    };
+
+    if (rota === `POST /ligas/${ligaId}/mercado/comprar`) {
+      const { jogadorId } = await lerCorpo(req);
+      return transferir((liga, clube, id) => comprarDaMaquina(liga, clube.id, id), jogadorId);
+    }
+
+    if (rota === `POST /ligas/${ligaId}/mercado/vender`) {
+      const { jogadorId } = await lerCorpo(req);
+      return transferir((liga, clube, id) => venderParaFora(liga, clube.id, id), jogadorId);
+    }
+
+    if (rota === `POST /ligas/${ligaId}/leiloes`) {
+      const { jogadorId } = await lerCorpo(req);
+      return transferir((liga, clube, id) => criarLeilao(liga, clube.id, id), jogadorId);
+    }
+
+    if (rota === `POST /ligas/${ligaId}/leiloes/${recursoId}/lances`) {
+      const { valor } = await lerCorpo(req);
+      return transferir((liga, clube, id) => darLance(liga, clube.id, id, Number(valor)), Number(recursoId));
     }
 
     if (rota === `POST /ligas/${ligaId}/iniciar`) {

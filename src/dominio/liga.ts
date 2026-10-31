@@ -10,6 +10,7 @@ import {
 import { gerarClubes, gerarSigla } from './geracao.ts';
 import type { OpcoesClubes } from './geracao.ts';
 import { montarEquipe, simularPartida } from './simulacao.ts';
+import { encerrarLeiloes } from './transferencias.ts';
 import type { Clube, Competicao, DuracaoLiga, Escalacao, Estilo, Fase, Formacao, Liga, LinhaTabela, Partida, Resultado } from './tipos.ts';
 
 /** Clubes de cada copa: os 8 primeiros seguem na principal, os outros 12 vão para a Copa Prata. */
@@ -342,7 +343,8 @@ function jogarPartida(liga: Liga, partida: Partida) {
 /** Devolve uma liga nova com a data simulada; a mesma semente dá sempre o mesmo resultado. */
 export function jogarRodada(liga: Liga): Liga {
   if (temporadaEncerrada(liga)) return liga;
-  const nova: Liga = JSON.parse(JSON.stringify(liga));
+  // Fecha antes do jogo: quem comprou já pode escalar o reforço.
+  const nova: Liga = JSON.parse(JSON.stringify(encerrarLeiloes(liga)));
   const data = nova.rodadaAtual;
 
   const foraNaData = new Set(
@@ -377,9 +379,10 @@ export function jogarDia(liga: Liga): Liga {
 /** Mantém clubes, saldo e títulos; o elenco envelhece e o calendário recomeça. */
 export function novaTemporada(liga: Liga): Liga {
   if (!temporadaEncerrada(liga)) return liga;
+  const fechada = encerrarLeiloes(liga, true);
   const nova: Liga = {
-    ...liga,
-    clubes: evoluirClubes(liga),
+    ...fechada,
+    clubes: evoluirClubes(fechada),
     temporada: liga.temporada + 1,
     rodadaAtual: 1,
     partidas: [],

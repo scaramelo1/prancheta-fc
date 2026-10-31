@@ -103,6 +103,16 @@ export function nivelDoTime(clube: Clube) {
   return Math.round(limitarNivel(soma / TITULARES));
 }
 
+/** Tira da escalação quem saiu do clube, mantendo a tática e os demais titulares. */
+export function repararEscalacao(clube: Clube): Escalacao | null {
+  const { escalacao, elenco } = clube;
+  if (!escalacao) return null;
+  const ids = new Set(elenco.map((j) => j.id));
+  if (escalacao.titulares.every((e) => ids.has(e.jogadorId))) return escalacao;
+  const fixos = escalacao.titulares.filter((e) => ids.has(e.jogadorId));
+  return { ...escalacao, titulares: completar(elenco, vagasDaFormacao(escalacao.formacao), fixos) };
+}
+
 /** Troca um titular por um reserva, que passa a ocupar a mesma vaga. */
 export function trocarTitular(escalacao: Escalacao, saiId: number, entraId: number): Escalacao {
   return {

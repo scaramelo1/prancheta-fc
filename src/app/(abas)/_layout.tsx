@@ -35,6 +35,7 @@ export default function AbasLayout() {
         options={{ title: t.abaClube, headerTitle: 'Prancheta FC', tabBarIcon: icone('shield') }}
       />
       <Tabs.Screen name="elenco" options={{ title: t.abaElenco, tabBarIcon: icone('people') }} />
+      <Tabs.Screen name="mercado" options={{ title: t.abaMercado, tabBarIcon: icone('swap-horizontal') }} />
       <Tabs.Screen name="tabela" options={{ title: t.abaTabela, tabBarIcon: icone('trophy') }} />
     </Tabs>
   );

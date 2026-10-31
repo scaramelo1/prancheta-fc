@@ -1,5 +1,6 @@
 import type { Decisao } from '../dominio/decisoes.ts';
 import type { Dificuldade, DuracaoLiga, Escalacao, Liga, Partida } from '../dominio/tipos.ts';
+import type { Oferta } from '../dominio/transferencias.ts';
 
 export const URL_API = 'https://fsadesigners.com.br/prancheta-api';
 
@@ -19,6 +20,7 @@ export interface VisaoLiga {
   iniciada: boolean;
   meuClubeId: number | null;
   decisao: Decisao | null;
+  mercado: Oferta[];
   liga: Liga;
 }
 
@@ -80,6 +82,14 @@ export function criarCliente(token: string, base = URL_API) {
     salvarEscalacao: (id: string, escalacao: Escalacao, assistente: boolean) =>
       pedir<VisaoLiga>(base, `/ligas/${id}/escalacao`, token, 'PUT', { escalacao, assistente }),
     decidir: (id: string, aceitar: boolean) => pedir<VisaoLiga>(base, `/ligas/${id}/decisao`, token, 'POST', { aceitar }),
+    comprar: (id: string, jogadorId: number) =>
+      pedir<VisaoLiga>(base, `/ligas/${id}/mercado/comprar`, token, 'POST', { jogadorId }),
+    vender: (id: string, jogadorId: number) =>
+      pedir<VisaoLiga>(base, `/ligas/${id}/mercado/vender`, token, 'POST', { jogadorId }),
+    leiloar: (id: string, jogadorId: number) =>
+      pedir<VisaoLiga>(base, `/ligas/${id}/leiloes`, token, 'POST', { jogadorId }),
+    darLance: (id: string, jogadorId: number, valor: number) =>
+      pedir<VisaoLiga>(base, `/ligas/${id}/leiloes/${jogadorId}/lances`, token, 'POST', { valor }),
   };
 }
 

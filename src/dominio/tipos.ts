@@ -50,6 +50,26 @@ export interface Clube {
   saldo: number;
   /** Dia em que o técnico respondeu à decisão diária. */
   decididoNoDia?: number;
+  /** Temporada e dia da última venda da máquina: ela vende um jogador por dia. */
+  vendaNoDia?: string;
+}
+
+/** Identificado pelo jogador, que só pode estar em um leilão por vez. */
+export interface Leilao {
+  jogadorId: number;
+  vendedorId: number;
+  inicial: number;
+  encerraNaData: number;
+  lance: { clubeId: number; valor: number } | null;
+}
+
+export interface Transferencia {
+  temporada: number;
+  jogador: string;
+  deId: number;
+  /** null = vendido para fora da liga. */
+  paraId: number | null;
+  valor: number;
 }
 
 export type TipoEvento = 'gol' | 'chance' | 'amarelo' | 'vermelho' | 'lesao';
@@ -118,6 +138,9 @@ export interface Liga {
   /** Os mata-matas entram aqui quando a fase anterior termina. */
   partidas: Partida[];
   titulos: Titulo[];
+  /** Opcionais: ligas criadas antes das transferências não têm estes campos. */
+  leiloes?: Leilao[];
+  transferencias?: Transferencia[];
 }
 
 export interface LinhaTabela {
