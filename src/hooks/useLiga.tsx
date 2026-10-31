@@ -1,12 +1,13 @@
+import Constants from 'expo-constants';
 import * as Crypto from 'expo-crypto';
 import * as Linking from 'expo-linking';
 import { useSQLiteContext } from 'expo-sqlite';
 import * as WebBrowser from 'expo-web-browser';
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 
-import { ErroApi, criarCliente, trocarLoginGoogle, urlDoLogin } from '../api/cliente';
+import { ErroApi, aguardarLoginGoogle, criarCliente, urlDoLogin } from '../api/cliente';
 import type { Cliente, ResumoLiga, VisaoLiga } from '../api/cliente';
 import { apagarConfig, lerConfig, salvarConfig } from '../db/repositorio';
 import { clubePorId } from '../dominio/liga';
@@ -15,6 +16,16 @@ import { t } from '../i18n';
 
 const CHAVE_TOKEN = 'token';
 const CHAVE_LIGA = 'liga';
+/** Cada pedido espera até 25 s no servidor: dá uns 5 minutos para escolher a conta. */
+const TENTATIVAS_DE_LOGIN = 12;
+/** Depois de fechar o navegador, o tempo para a sessão ainda chegar. */
+const FOLGA_AO_FECHAR_MS = 5_000;
+
+/** No Expo Go só o endereço exp:// abre o app; o esquema pranchetafc:// existe apenas no app instalado. */
+function enderecoDeRetorno() {
+  const servidor = Constants.expoConfig?.hostUri;
+  return servidor ? `exp://${servidor}/--/login` : Linking.createURL('login');
+}
 
 interface ValorLiga {
   pronta: boolean;
@@ -122,21 +133,33 @@ export function ProvedorLiga({ children }: { children: ReactNode }) {
       encoding: Crypto.CryptoEncoding.BASE64,
     });
     const desafio = hash.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-    const retorno = Linking.createURL('login');
+    const retorno = enderecoDeRetorno();
+    const tokenAtual = await lerConfig(db, CHAVE_TOKEN);
+    let ativo = true;
 
-    const resposta = await WebBrowser.openAuthSessionAsync(urlDoLogin(retorno, desafio), retorno);
-    if (resposta.type !== 'success') return;
-    const codigo = Linking.parse(resposta.url).queryParams?.codigo;
-    if (typeof codigo !== 'string') throw new Error(t.erroLogin);
+    // A sessão vem direto do servidor, então o login funciona mesmo se o navegador não voltar ao app.
+    const esperarSessao = async () => {
+      for (let i = 0; i < TENTATIVAS_DE_LOGIN && ativo; i++) {
+        const resposta = await aguardarLoginGoogle(verificador, tokenAtual);
+        if ('token' in resposta) return resposta;
+      }
+      return null;
+    };
+    const navegadorFechou = WebBrowser.openAuthSessionAsync(urlDoLogin(retorno, desafio), retorno)
+      .then(() => new Promise<null>((pronto) => { setTimeout(() => { pronto(null); }, FOLGA_AO_FECHAR_MS); }));
 
     try {
-      const { token } = await trocarLoginGoogle(codigo, verificador, await lerConfig(db, CHAVE_TOKEN));
-      await salvarConfig(db, CHAVE_TOKEN, token);
-      abrirSessao(token);
+      const sessao = await Promise.race([esperarSessao(), navegadorFechou]);
+      if (!sessao) return;
+      if (Platform.OS === 'ios') WebBrowser.dismissAuthSession();
+      await salvarConfig(db, CHAVE_TOKEN, sessao.token);
+      abrirSessao(sessao.token);
       setPronta(false);
       await recarregar();
     } catch {
       throw new Error(t.erroLogin);
+    } finally {
+      ativo = false;
     }
   }, [abrirSessao, db, recarregar]);
 

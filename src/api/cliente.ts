@@ -61,9 +61,9 @@ export interface Sessao {
 export const urlDoLogin = (retorno: string, desafio: string, base = URL_API) =>
   `${base}/auth/google/inicio?retorno=${encodeURIComponent(retorno)}&desafio=${encodeURIComponent(desafio)}`;
 
-/** Troca o código recebido pelo navegador por uma sessão. O token atual preserva as ligas de quem já jogava. */
-export const trocarLoginGoogle = (codigo: string, verificador: string, tokenAtual: string | null, base = URL_API) =>
-  pedir<Sessao>(base, '/auth/google/trocar', tokenAtual, 'POST', { codigo, verificador });
+/** Espera o login no navegador terminar. O token atual preserva as ligas de quem já jogava. */
+export const aguardarLoginGoogle = (verificador: string, tokenAtual: string | null, base = URL_API) =>
+  pedir<Sessao | { pendente: true }>(base, '/auth/google/aguardar', tokenAtual, 'POST', { verificador });
 
 export const criarConta = (base = URL_API) => pedir<{ id: string; token: string }>(base, '/contas', null, 'POST');
 

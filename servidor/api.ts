@@ -13,7 +13,7 @@ import { proximoInicio } from './agenda.ts';
 import type { Banco, Conta, RegistroLiga } from './banco.ts';
 import { emFila } from './fila.ts';
 import { LoginGoogle, paginaDeRetorno } from './google.ts';
-import type { ConfigGoogle } from './google.ts';
+import type { ConfigGoogle, UsuarioGoogle } from './google.ts';
 
 const TAMANHO_MAXIMO_CORPO = 16_000;
 const LIGAS_POR_CONTA = 3;
@@ -153,6 +153,23 @@ export function criarApi(banco: Banco, opcoes: OpcoesApi = {}): Server {
     return registro;
   }
 
+  function abrirSessaoGoogle(usuario: UsuarioGoogle, req: IncomingMessage) {
+    return emFila(async () => {
+      let conta = await banco.contaPorGoogle(usuario.sub);
+      if (!conta) {
+        // Quem já jogava neste aparelho mantém as ligas ao entrar com o Google.
+        const atual = await contaOpcional(req);
+        const id = atual && !atual.google ? atual.id : randomUUID();
+        if (id !== atual?.id) await banco.criarConta(id, usuario.nome, hashDoToken(randomBytes(32).toString('base64url')));
+        await banco.vincularGoogle(id, usuario.sub, usuario.nome);
+        conta = { id, nome: usuario.nome, google: true };
+      }
+      const token = randomBytes(32).toString('base64url');
+      await banco.criarSessao(conta.id, hashDoToken(token));
+      return { token, nome: conta.nome };
+    });
+  }
+
   async function atender(req: IncomingMessage, res: ServerResponse) {
     const { pathname, searchParams: params } = new URL(req.url ?? '/', 'http://localhost');
     const rota = `${req.method} ${pathname}`;
@@ -184,21 +201,17 @@ export function criarApi(banco: Banco, opcoes: OpcoesApi = {}): Server {
       const { codigo, verificador } = await lerCorpo(req);
       const usuario = login.trocar(String(codigo ?? ''), String(verificador ?? ''));
       if (!usuario) throw new ErroHttp(401, 'Login expirado; tente de novo');
+      return ok(await abrirSessaoGoogle(usuario, req));
+    }
 
-      return ok(await emFila(async () => {
-        let conta = await banco.contaPorGoogle(usuario.sub);
-        if (!conta) {
-          // Quem já jogava neste aparelho mantém as ligas ao entrar com o Google.
-          const atual = await contaOpcional(req);
-          const id = atual && !atual.google ? atual.id : randomUUID();
-          if (id !== atual?.id) await banco.criarConta(id, usuario.nome, hashDoToken(randomBytes(32).toString('base64url')));
-          await banco.vincularGoogle(id, usuario.sub, usuario.nome);
-          conta = { id, nome: usuario.nome, google: true };
-        }
-        const token = randomBytes(32).toString('base64url');
-        await banco.criarSessao(conta.id, hashDoToken(token));
-        return { token, nome: conta.nome };
-      }));
+    if (rota === 'POST /auth/google/aguardar') {
+      if (!login) throw new ErroHttp(503, 'Login com Google indisponível');
+      const { verificador } = await lerCorpo(req);
+      if (typeof verificador !== 'string' || verificador.length < 20 || verificador.length > 128) {
+        throw new ErroHttp(400, 'Verificador inválido');
+      }
+      const usuario = await login.aguardar(verificador);
+      return ok(usuario ? await abrirSessaoGoogle(usuario, req) : { pendente: true });
     }
 
     if (rota === 'POST /contas') {

@@ -312,6 +312,7 @@ describe('login com Google', () => {
       clientId: 'id-do-app',
       clientSecret: 'segredo',
       urlPublica: 'https://exemplo.test/api',
+      esperaMs: 50,
       trocarCodigo: async () => {
         trocas += 1;
         return idToken(perfil);
@@ -438,6 +439,28 @@ describe('login com Google', () => {
     const estado = new URL((await iniciar()).headers.get('location')!).searchParams.get('state');
     const volta = await abrir(`/auth/google/retorno?error=access_denied&state=${estado}`);
     assert.equal((await destinoDaVolta(volta)).searchParams.get('erro'), '1');
+  });
+
+  it('o app recebe a sessão sem depender da volta pelo navegador', async () => {
+    perfil = valido('google-aguarda', 'Bia Souza');
+    const aguardar = (verificador: unknown, token?: string) => fetch(`${base}/auth/google/aguardar`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: JSON.stringify({ verificador }),
+    });
+    assert.equal((await aguardar('curto')).status, 400);
+    const verificador = 'verificador-so-deste-teste';
+    const desafio = createHash('sha256').update(verificador).digest('base64url');
+    assert.deepEqual(await (await aguardar(verificador)).json(), { pendente: true });
+
+    const google = new URL((await iniciar(RETORNO, desafio)).headers.get('location')!);
+    await abrir(`/auth/google/retorno?code=abc&state=${google.searchParams.get('state')}`);
+    const outro = 'x'.repeat(60);
+    assert.deepEqual(await (await aguardar(outro)).json(), { pendente: true }, 'outro verificador não recebe a sessão');
+    const sessao = (await (await aguardar(verificador)).json()) as { token: string; nome: string };
+    assert.equal(sessao.nome, 'Bia');
+    assert.equal((await criarCliente(sessao.token, base).eu()).google, true);
+    assert.deepEqual(await (await aguardar(verificador)).json(), { pendente: true }, 'a sessão sai uma vez só');
   });
 
   it('a página de retorno não deixa o endereço virar código', async () => {

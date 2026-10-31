@@ -6,6 +6,8 @@ const EMISSORES = ['https://accounts.google.com', 'accounts.google.com'];
 const VALIDADE_LOGIN_MS = 10 * 60_000;
 const VALIDADE_CODIGO_MS = 2 * 60_000;
 const MAXIMO_PENDENTES = 5_000;
+const ESPERA_MS = 25_000;
+const INTERVALO_ESPERA_MS = 300;
 /** Só o próprio app recebe o código: pranchetafc:// no build, exp:// no Expo Go. */
 const RETORNO_VALIDO = /^(pranchetafc|exp|exps):\/\/[^\s]*$/;
 const DESAFIO_VALIDO = /^[A-Za-z0-9_-]{43}$/;
@@ -16,6 +18,8 @@ export interface ConfigGoogle {
   urlPublica: string;
   /** Troca o código do Google pelo id_token; os testes substituem esta chamada. */
   trocarCodigo?: (codigo: string) => Promise<string>;
+  /** Quanto tempo cada pedido do app espera o login terminar. */
+  esperaMs?: number;
 }
 
 export interface UsuarioGoogle {
@@ -38,11 +42,11 @@ const escaparHtml = (texto: string) =>
   texto.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 /**
- * O Android pode bloquear o salto automático para o app quando ele vem depois de um redirecionamento,
- * e o navegador fica parado em branco. Por isso a volta é uma página: tenta sozinha e, se não der,
- * o toque no botão conta como gesto do usuário.
+ * A página tenta voltar sozinha e oferece o botão, porque o navegador pode bloquear o salto automático.
+ * Mesmo sem voltar, o login já vale: o app recebe a sessão por /auth/google/aguardar.
  */
 export function paginaDeRetorno(destino: string) {
+  const falhou = /[?&]erro=1/.test(destino);
   const href = escaparHtml(destino);
   const script = JSON.stringify(destino).replace(/</g, '\\u003c');
   return `<!doctype html>
@@ -57,7 +61,7 @@ a{background:#fff;color:#1f1f1f;font-weight:700;text-decoration:none;padding:14p
 </style>
 </head>
 <body>
-<p>Login concluído.</p>
+<p>${falhou ? 'Não foi possível entrar. Volte ao app e tente de novo.' : 'Login concluído. Se o app não abrir sozinho, toque no botão ou feche esta página.'}</p>
 <a href="${href}">Voltar ao Prancheta FC</a>
 <script>location.href=${script};</script>
 </body>
@@ -77,6 +81,8 @@ const comParametros = (retorno: string, parametros: string) =>
 export class LoginGoogle {
   private logins = new Map<string, LoginPendente>();
   private codigos = new Map<string, CodigoPendente>();
+  /** Liga o desafio ao código, para o app receber a sessão sem depender da volta pelo navegador. */
+  private porDesafio = new Map<string, string>();
   private config: ConfigGoogle;
   private relogio: () => number;
 
@@ -154,10 +160,30 @@ export class LoginGoogle {
       this.limpar(this.codigos);
       const codigo = token();
       this.codigos.set(codigo, { ...usuario, desafio: login.desafio, expira: this.relogio() + VALIDADE_CODIGO_MS });
+      for (const [desafio, pendente] of this.porDesafio) if (!this.codigos.has(pendente)) this.porDesafio.delete(desafio);
+      this.porDesafio.set(login.desafio, codigo);
       return comParametros(login.retorno, `codigo=${codigo}`);
     } catch (erro) {
       console.error('Falha no login com Google', erro);
       return comParametros(login.retorno, 'erro=1');
+    }
+  }
+
+  /**
+   * Espera o login terminar e devolve o usuário, ou null se o tempo acabar: o app pergunta de novo.
+   * Só quem tem o verificador, que nunca sai do aparelho, chega ao desafio certo.
+   */
+  async aguardar(verificador: string) {
+    const desafio = createHash('sha256').update(verificador).digest('base64url');
+    const fim = Date.now() + (this.config.esperaMs ?? ESPERA_MS);
+    for (;;) {
+      const codigo = this.porDesafio.get(desafio);
+      if (codigo) {
+        this.porDesafio.delete(desafio);
+        return this.trocar(codigo, verificador);
+      }
+      if (Date.now() >= fim) return null;
+      await new Promise((pronto) => { setTimeout(pronto, INTERVALO_ESPERA_MS); });
     }
   }
 
@@ -166,6 +192,7 @@ export class LoginGoogle {
     const pendente = this.codigos.get(codigo);
     if (!pendente) return null;
     this.codigos.delete(codigo);
+    this.porDesafio.delete(pendente.desafio);
     const desafio = createHash('sha256').update(verificador).digest('base64url');
     if (pendente.expira <= this.relogio() || desafio !== pendente.desafio) return null;
     return { sub: pendente.sub, nome: pendente.nome };
