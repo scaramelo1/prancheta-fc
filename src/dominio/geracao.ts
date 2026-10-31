@@ -34,10 +34,11 @@ const CORES = [
 const PERSONALIDADES: Personalidade[] = ['retranqueiro', 'equilibrado', 'ofensivo', 'formador'];
 
 const ELENCO: [Posicao, number][] = [['GOL', 2], ['DEF', 7], ['MEI', 7], ['ATA', 6]];
-const FORCA_BASE: Record<Dificuldade, number> = { facil: 54, normal: 60, dificil: 66 };
-const FORCA_HUMANO = 60;
+// A média dos titulares fica uns 2 pontos acima da base: um time inicial tem nível de 35 a 40.
+const FORCA_BASE: Record<Dificuldade, number> = { facil: 34, normal: 35, dificil: 36 };
+const FORCA_HUMANO = 35;
 /** Distância entre o clube mais fraco e o mais forte da máquina em uma liga. */
-const AMPLITUDE = 12;
+const AMPLITUDE = 2;
 
 export function gerarSigla(nome: string) {
   const palavras = nome.split(' ').filter((p) => p.length > 2);
@@ -57,7 +58,7 @@ function gerarElenco(rng: Rng, proximoId: () => number, forcaBase: number, jovem
   for (const [posicao, quantidade] of ELENCO) {
     for (let i = 0; i < quantidade; i++) {
       const idade = jovem ? inteiro(rng, 17, 25) : inteiro(rng, 19, 35);
-      const forca = limitarNivel(forcaBase + inteiro(rng, -8, 8));
+      const forca = limitarNivel(forcaBase + inteiro(rng, -5, 5));
       elenco.push({
         id: proximoId(),
         nome: gerarNome(rng),

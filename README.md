@@ -25,9 +25,9 @@ evoluem e quem se aposenta dá lugar a um jovem da mesma posição.
 
 ## Nível
 
-Cada jogador tem nível de 0 a 100 (campo `forca`, junto com o teto `potencial`). O nível do time, também
-de 0 a 100, é a média dos 11 titulares do próximo jogo: quem joga fora de posição vale 70%, e vaga vazia
-vale zero. Ele acompanha a escalação, as lesões e a evolução dos jogadores, mas não a energia.
+Cada jogador tem nível de 30 a 100 (campo `forca`, junto com o teto `potencial`). O nível do time, também
+de 30 a 100, é a média dos 11 titulares do próximo jogo: quem joga fora de posição vale 70%, e vaga vazia
+vale zero. Um time inicial tem nível de 35 a 40. Ele acompanha a escalação, as lesões e a evolução dos jogadores, mas não a energia.
 
 ## Motor
 

@@ -539,10 +539,10 @@ describe('entrada na liga', () => {
   });
 });
 
-describe('nível de 0 a 100', () => {
+describe('nível de 30 a 100', () => {
   it('o nível do time é a média dos titulares e acompanha o dos jogadores', () => {
     const clube = nova().clubes[0];
-    assert.equal(nivelDoTime(comForca(clube, 0)), 0);
+    assert.equal(nivelDoTime(comForca(clube, 30)), 30);
     assert.equal(nivelDoTime(comForca(clube, 73)), 73);
     assert.equal(nivelDoTime(comForca(clube, 100)), 100);
   });
@@ -558,21 +558,34 @@ describe('nível de 0 a 100', () => {
     const semGoleiros = { ...clube, elenco: clube.elenco.map((j) => (j.posicao === 'GOL' ? { ...j, rodadasFora: 3 } : j)) };
     assert.ok(nivelDoTime(semGoleiros) < 60);
     const incompleto = { ...clube, elenco: clube.elenco.slice(0, 5) };
-    assert.ok(nivelDoTime(incompleto) < 30);
+    assert.ok(nivelDoTime(incompleto) < 40);
   });
 
-  it('a evolução vai até 100 e desce até 0, sem passar dos limites', () => {
+  it('um time inicial gira em torno de 35 a 40', () => {
+    for (const dificuldade of ['facil', 'normal', 'dificil'] as const) {
+      const niveis: number[] = [];
+      for (let semente = 1; semente <= 20; semente++) {
+        const liga = criarLiga('l', { nomeClube: 'Teste FC', donoId: 'eu', dificuldade, duracao: 'torneio', semente });
+        niveis.push(...liga.clubes.map(nivelDoTime));
+      }
+      const media = niveis.reduce((a, b) => a + b, 0) / niveis.length;
+      assert.ok(media >= 35 && media <= 40, `${dificuldade}: ${media}`);
+      assert.ok(niveis.every((n) => n >= 33 && n <= 42), dificuldade);
+    }
+  });
+
+  it('a evolução vai até 100 e para no piso de 30', () => {
     const liga = nova();
     Object.assign(liga.clubes[0].elenco[0], { idade: 18, forca: 100, potencial: 100 });
-    Object.assign(liga.clubes[0].elenco[1], { idade: 32, forca: 1, potencial: 1 });
+    Object.assign(liga.clubes[0].elenco[1], { idade: 32, forca: 30, potencial: 30 });
     const { elenco } = evoluirClubes(liga)[0];
     assert.equal(elenco[0].forca, 100);
-    assert.ok(elenco[1].forca >= 0);
+    assert.equal(elenco[1].forca, 30);
   });
 
   it('o jogo roda com os extremos da escala', () => {
     const { clubes } = nova();
-    const [fraco, forte] = [comForca(clubes[1], 0), comForca(clubes[2], 100)];
+    const [fraco, forte] = [comForca(clubes[1], 30), comForca(clubes[2], 100)];
     const r = simularPartida(
       montarEquipe(forte, melhorEscalacao(forte, '4-4-2', 'equilibrado')),
       montarEquipe(fraco, melhorEscalacao(fraco, '4-4-2', 'equilibrado')),
