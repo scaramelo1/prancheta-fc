@@ -14,7 +14,7 @@ function avancar(liga: Parameters<typeof jogarRodada>[0], janela: number) {
  * Cada liga guarda o último horário processado. Por isso o servidor pode reiniciar a qualquer
  * momento: nenhuma rodada roda duas vezes, e as perdidas são jogadas na volta.
  */
-export async function processarRodadas(banco: Banco, agoraMs: number) {
+export async function processarRodadas(banco: Banco, agoraMs: number): Promise<number> {
   const janelaAtual = indiceDaJanela(agoraMs);
   let processadas = 0;
 
