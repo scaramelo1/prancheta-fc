@@ -125,13 +125,13 @@ export default function Tabela() {
   const [amigos, setAmigos] = useState<VisaoLiga | null>(null);
 
   useEffect(() => {
-    setAmigos(null);
     if (ligaId) cliente?.liga(ligaId).then(setAmigos).catch(() => setLigaId(null));
   }, [cliente, ligaId]);
 
   if (!pronta) return <Carregando />;
   if (!visao) return <Aviso texto={t.semLiga} />;
-  const aberta = ligaId ? amigos : visao;
+  // Ao trocar de torneio, a resposta anterior não vale até a nova chegar.
+  const aberta = ligaId ? (amigos?.id === ligaId ? amigos : null) : visao;
   const deAmigos = ligas.filter((l) => l.tipo === 'amigos');
   const escolha = deAmigos.length > 0 && (
     <View style={estilos.chipsLinha}>

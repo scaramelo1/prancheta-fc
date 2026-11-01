@@ -2,9 +2,8 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { adicionarTecnico, criarMataMata, jogarFaseDoMataMata, sortearChave } from '../amigos.ts';
-import { temporadaEncerrada } from '../liga.ts';
+import { clubeDoDono, entrarNaLiga, temporadaEncerrada } from '../liga.ts';
 import { criarLigaOficial, dificuldadeDaTemporada } from '../mundo.ts';
-import { entrarNaLiga, clubeDoDono } from '../liga.ts';
 
 function torneioCom(tecnicos: number) {
   const base = entrarNaLiga(criarLigaOficial('m', { divisao: 1, grupo: 0 }, 1), 'x', 'Time Base');
