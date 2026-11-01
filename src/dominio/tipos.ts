@@ -131,6 +131,8 @@ export interface Liga {
   grupo?: number;
   /** Clubes que caem ao fim da temporada: 2 por liga aberta logo abaixo. */
   descem?: number;
+  /** Janela da data 1 da temporada, para o calendário saber o horário de cada jogo. */
+  inicioJanela?: number;
   temporada: number;
   dificuldade: Dificuldade;
   duracao: DuracaoLiga;

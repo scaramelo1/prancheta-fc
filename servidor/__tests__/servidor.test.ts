@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import type { AddressInfo } from 'node:net';
 
 import { ErroApi, criarCliente, criarConta } from '../../src/api/cliente.ts';
+import type { VisaoLiga } from '../../src/api/cliente.ts';
 import { indiceDaJanela, janelaDoMeioDia, proximoInicio } from '../agenda.ts';
 import { criarApi } from '../api.ts';
 import { BancoSqlite } from '../banco.ts';
@@ -50,6 +51,10 @@ describe('API', () => {
   }
 
   const novaConta = async () => (await chamar('POST', '/contas')).corpo.token as string;
+  const novoTime = async (nomeClube: string) => {
+    const token = await novaConta();
+    return { token, visao: (await chamar('POST', '/mundo/entrar', token, { nomeClube })).corpo };
+  };
 
   before(async () => {
     await new Promise<void>((pronto) => { api.listen(0, '127.0.0.1', pronto); });
@@ -70,54 +75,80 @@ describe('API', () => {
     assert.equal((await chamar('GET', '/ligas', 'token-falso')).status, 401);
   });
 
-  it('valida os dados da liga', async () => {
+  it('sem time não cria nem entra em liga de amigos', async () => {
     const token = await novaConta();
-    assert.equal((await chamar('POST', '/ligas', token, { nomeClube: 'x' })).status, 400);
-    assert.equal((await chamar('POST', '/ligas', token, { nomeClube: 'Teste FC', dificuldade: 'absurda' })).status, 400);
+    assert.equal((await chamar('POST', '/ligas', token)).status, 409);
+    assert.equal((await chamar('POST', '/ligas/entrar', token, { codigo: 'ABC234' })).status, 409);
+  });
+
+  it('valida o nome do time e não deixa criar um segundo', async () => {
+    const token = await novaConta();
+    assert.equal((await chamar('POST', '/mundo/entrar', token, { nomeClube: 'x' })).status, 400);
+    const primeiro = await chamar('POST', '/mundo/entrar', token, { nomeClube: 'Time Certo' });
+    const segundo = await chamar('POST', '/mundo/entrar', token, { nomeClube: 'Outro Time' });
+    assert.equal(segundo.corpo.id, primeiro.corpo.id);
+    assert.equal(segundo.corpo.liga.clubes.find((c: any) => c.id === segundo.corpo.meuClubeId).nome, 'Time Certo');
   });
 
   it('limita as ligas criadas por conta', async () => {
-    const token = await novaConta();
-    for (let i = 0; i < 3; i++) assert.equal((await chamar('POST', '/ligas', token, { nomeClube: 'Teste FC' })).status, 201);
-    assert.equal((await chamar('POST', '/ligas', token, { nomeClube: 'Teste FC' })).status, 409);
+    const { token } = await novoTime('Dono FC');
+    for (let i = 0; i < 3; i++) assert.equal((await chamar('POST', '/ligas', token)).status, 201);
+    assert.equal((await chamar('POST', '/ligas', token)).status, 409);
   });
 
-  it('amigo entra pelo código, assume um clube da máquina e a liga fica com 20 clubes', async () => {
-    const dono = await novaConta();
-    const amigo = await novaConta();
-    const { corpo: criada } = await chamar('POST', '/ligas', dono, { nomeClube: 'Clube do Dono' });
+  it('amigo entra pelo código com o mesmo time do Mundo e a liga fica com 20 clubes', async () => {
+    const dono = await novoTime('Clube do Dono');
+    const amigo = await novoTime('Amigos FC');
+    const { corpo: criada } = await chamar('POST', '/ligas', dono.token);
 
-    assert.equal((await chamar('POST', '/ligas/entrar', amigo, { codigo: 'ERRADO', nomeClube: 'Amigos FC' })).status, 404);
-    const { corpo: entrou } = await chamar('POST', '/ligas/entrar', amigo, { codigo: criada.codigo.toLowerCase(), nomeClube: 'Amigos FC' });
+    assert.equal((await chamar('POST', '/ligas/entrar', amigo.token, { codigo: 'ERRADO' })).status, 404);
+    const { corpo: entrou } = await chamar('POST', '/ligas/entrar', amigo.token, { codigo: criada.codigo.toLowerCase() });
 
+    assert.equal(entrou.liga.tipo, 'amigos');
     assert.equal(entrou.liga.clubes.length, 20);
     assert.equal(entrou.liga.clubes.filter((c: any) => c.donoId !== null).length, 2);
-    assert.equal(entrou.liga.clubes.find((c: any) => c.id === entrou.meuClubeId).nome, 'Amigos FC');
+    const meu = entrou.liga.clubes.find((c: any) => c.id === entrou.meuClubeId);
+    const noMundo = amigo.visao.liga.clubes.find((c: any) => c.id === amigo.visao.meuClubeId);
+    assert.equal(meu.nome, 'Amigos FC');
+    assert.deepEqual(meu.elenco.map((j: any) => j.nome), noMundo.elenco.map((j: any) => j.nome));
     assert.equal(entrou.souDono, false);
-    const lista = (await chamar('GET', '/ligas', amigo)).corpo;
-    assert.deepEqual([lista.length, lista[0].clube, lista[0].tecnicos], [1, 'Amigos FC', 2]);
+    const lista = (await chamar('GET', '/ligas', amigo.token)).corpo;
+    const amigos = lista.find((l: any) => l.tipo === 'amigos');
+    assert.deepEqual([lista.length, amigos.clube, amigos.tecnicos], [2, 'Amigos FC', 2]);
   });
 
   it('entrar duas vezes não ocupa outro clube', async () => {
-    const dono = await novaConta();
-    const { corpo: criada } = await chamar('POST', '/ligas', dono, { nomeClube: 'Clube do Dono' });
-    const { corpo } = await chamar('POST', '/ligas/entrar', dono, { codigo: criada.codigo, nomeClube: 'Outro Nome' });
+    const { token } = await novoTime('Clube do Dono');
+    const { corpo: criada } = await chamar('POST', '/ligas', token);
+    const { corpo } = await chamar('POST', '/ligas/entrar', token, { codigo: criada.codigo });
     assert.equal(corpo.liga.clubes.filter((c: any) => c.donoId !== null).length, 1);
   });
 
+  it('o time só muda no Mundo Oficial', async () => {
+    const { token, visao } = await novoTime('Clube do Dono');
+    const { corpo: criada } = await chamar('POST', '/ligas', token);
+    assert.equal(criada.decisao, null);
+    assert.deepEqual(criada.mercado, []);
+    const rota = `/ligas/${criada.id}`;
+    const clube = criada.liga.clubes.find((c: any) => c.id === criada.meuClubeId);
+    assert.equal((await chamar('PUT', `${rota}/escalacao`, token, { escalacao: clube.escalacao, assistente: false })).status, 409);
+    assert.equal((await chamar('POST', `${rota}/decisao`, token, { aceitar: false })).status, 409);
+    assert.equal((await chamar('POST', `${rota}/mercado/vender`, token, { jogadorId: clube.elenco[0].id })).status, 409);
+    assert.ok(visao.decisao);
+  });
+
   it('transferências: compra, venda e leilão pela API', async () => {
-    const dono = await novaConta();
-    const amigo = await novaConta();
-    const { corpo: criada } = await chamar('POST', '/ligas', dono, { nomeClube: 'Clube do Dono' });
-    await chamar('POST', '/ligas/entrar', amigo, { codigo: criada.codigo, nomeClube: 'Amigos FC' });
+    const { token: dono, visao: criada } = await novoTime('Clube do Dono');
+    const { token: amigo } = await novoTime('Amigos FC');
     const rota = `/ligas/${criada.id}`;
 
     const { corpo: visao } = await chamar('GET', rota, dono);
-    assert.equal(visao.mercado.length, 18);
+    assert.ok(visao.mercado.length > 0);
+    const tamanho = visao.liga.clubes.find((c: any) => c.id === visao.meuClubeId).elenco.length;
     const oferta = visao.mercado[0];
     const { status, corpo: comprou } = await chamar('POST', `${rota}/mercado/comprar`, dono, { jogadorId: oferta.jogador.id });
     assert.equal(status, 200);
-    assert.equal(comprou.liga.clubes.find((c: any) => c.id === comprou.meuClubeId).elenco.length, 23);
+    assert.equal(comprou.liga.clubes.find((c: any) => c.id === comprou.meuClubeId).elenco.length, tamanho + 1);
     assert.equal((await chamar('POST', `${rota}/mercado/comprar`, amigo, { jogadorId: oferta.jogador.id })).status, 409);
     assert.equal((await chamar('POST', `${rota}/mercado/comprar`, dono, {})).status, 400);
 
@@ -133,49 +164,28 @@ describe('API', () => {
     const vendido = meu.elenco.find((j: any) => j.id !== reserva.id && j.posicao === 'ATA');
     const venda = await chamar('POST', `${rota}/mercado/vender`, dono, { jogadorId: vendido.id });
     assert.equal(venda.status, 200);
-    assert.equal(venda.corpo.liga.transferencias[0].paraId, null);
+    assert.ok(venda.corpo.liga.transferencias.some((x: any) => x.paraId === null));
     assert.equal((await chamar('POST', `${rota}/mercado/vender`, await novaConta(), { jogadorId: 1 })).status, 404);
   });
 
-  it('Mundo Oficial: 20 técnicos enchem a divisão 1 e o próximo abre a divisão 2', async () => {
-    const entrar = async (token: string, n: number) =>
-      (await chamar('POST', '/mundo/entrar', token, { nomeClube: `Clube ${n}` })).corpo;
-    const tokens: string[] = [];
-    for (let n = 0; n < 20; n++) tokens.push(await novaConta());
-    const primeiro = await entrar(tokens[0], 0);
-    assert.equal(primeiro.liga.divisao, '1');
-    assert.equal(primeiro.iniciada, true);
-    for (let n = 1; n < 20; n++) assert.equal((await entrar(tokens[n], n)).id, primeiro.id);
-    assert.equal((await entrar(tokens[3], 3)).liga.clubes.filter((c: any) => c.donoId).length, 20, 'entrar de novo não ocupa outra vaga');
-
-    const novato = await novaConta();
-    const segunda = await entrar(novato, 21);
-    assert.equal(segunda.liga.divisao, '2');
-    assert.equal(segunda.liga.grupo, 0);
-    assert.equal(segunda.liga.temporada, primeiro.liga.temporada);
-    assert.equal((await chamar('POST', '/ligas/entrar', await novaConta(), { codigo: segunda.codigo, nomeClube: 'Intruso FC' })).status, 404);
-    assert.equal((await chamar('GET', `/ligas/${primeiro.id}`, tokens[0])).corpo.liga.descem, 2);
-  });
-
   it('quem não participa não vê a liga', async () => {
-    const dono = await novaConta();
-    const { corpo } = await chamar('POST', '/ligas', dono, { nomeClube: 'Clube do Dono' });
+    const { token } = await novoTime('Clube do Dono');
+    const { corpo } = await chamar('POST', '/ligas', token);
     assert.equal((await chamar('GET', `/ligas/${corpo.id}`, await novaConta())).status, 404);
   });
 
   it('só o dono inicia, e uma vez só', async () => {
-    const dono = await novaConta();
-    const amigo = await novaConta();
-    const { corpo: criada } = await chamar('POST', '/ligas', dono, { nomeClube: 'Clube do Dono' });
-    await chamar('POST', '/ligas/entrar', amigo, { codigo: criada.codigo, nomeClube: 'Amigos FC' });
-    assert.equal((await chamar('POST', `/ligas/${criada.id}/iniciar`, amigo)).status, 403);
-    assert.equal((await chamar('POST', `/ligas/${criada.id}/iniciar`, dono)).corpo.iniciada, true);
-    assert.equal((await chamar('POST', `/ligas/${criada.id}/iniciar`, dono)).status, 409);
+    const dono = await novoTime('Clube do Dono');
+    const amigo = await novoTime('Amigos FC');
+    const { corpo: criada } = await chamar('POST', '/ligas', dono.token);
+    await chamar('POST', '/ligas/entrar', amigo.token, { codigo: criada.codigo });
+    assert.equal((await chamar('POST', `/ligas/${criada.id}/iniciar`, amigo.token)).status, 403);
+    assert.equal((await chamar('POST', `/ligas/${criada.id}/iniciar`, dono.token)).corpo.iniciada, true);
+    assert.equal((await chamar('POST', `/ligas/${criada.id}/iniciar`, dono.token)).status, 409);
   });
 
   it('aceita escalação válida e recusa jogador de outro clube, repetido ou faltando', async () => {
-    const dono = await novaConta();
-    const { corpo } = await chamar('POST', '/ligas', dono, { nomeClube: 'Clube do Dono' });
+    const { token: dono, visao: corpo } = await novoTime('Clube da Escalação');
     const clube = corpo.liga.clubes.find((c: any) => c.id === corpo.meuClubeId);
     const rival = corpo.liga.clubes.find((c: any) => c.id !== corpo.meuClubeId);
     const { escalacao } = clube;
@@ -185,8 +195,9 @@ describe('API', () => {
     const trocada = { ...escalacao, estilo: 'ofensivo' };
     const salva = await enviar(trocada);
     assert.equal(salva.status, 200);
-    assert.equal(salva.corpo.liga.clubes[0].escalacao.estilo, 'ofensivo');
-    assert.equal(salva.corpo.liga.clubes[0].assistente, false);
+    const meu = salva.corpo.liga.clubes.find((c: any) => c.id === salva.corpo.meuClubeId);
+    assert.equal(meu.escalacao.estilo, 'ofensivo');
+    assert.equal(meu.assistente, false);
 
     const repetido = { ...escalacao, titulares: escalacao.titulares.map((t: any) => ({ ...t, jogadorId: escalacao.titulares[0].jogadorId })) };
     const deFora = { ...escalacao, titulares: [{ ...escalacao.titulares[0], jogadorId: rival.elenco[0].id }, ...escalacao.titulares.slice(1)] };
@@ -198,8 +209,7 @@ describe('API', () => {
   });
 
   it('responde à decisão do dia uma vez', async () => {
-    const dono = await novaConta();
-    const { corpo } = await chamar('POST', '/ligas', dono, { nomeClube: 'Clube do Dono' });
+    const { token: dono, visao: corpo } = await novoTime('Clube da Decisão');
     assert.ok(corpo.decisao);
     const url = `/ligas/${corpo.id}/decisao`;
     assert.equal((await chamar('POST', url, dono, { aceitar: false })).corpo.decisao, null);
@@ -208,9 +218,9 @@ describe('API', () => {
 
   it('recusa JSON inválido e corpo grande demais', async () => {
     const token = await novaConta();
-    const invalido = await fetch(`${base}/ligas`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: '{' });
+    const invalido = await fetch(`${base}/mundo/entrar`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: '{' });
     assert.equal(invalido.status, 400);
-    assert.equal((await chamar('POST', '/ligas', token, { nomeClube: 'x'.repeat(20_000) })).status, 413);
+    assert.equal((await chamar('POST', '/mundo/entrar', token, { nomeClube: 'x'.repeat(20_000) })).status, 413);
   });
 
   it('nunca grava o token em texto puro', async () => {
@@ -220,9 +230,8 @@ describe('API', () => {
 
   it('joga cada horário uma vez, recupera os perdidos e só mostra a narração do próprio jogo', async () => {
     agora = MEIO_DIA - HORA;
-    const dono = await novaConta();
-    const { corpo: criada } = await chamar('POST', '/ligas', dono, { nomeClube: 'Clube do Dono' });
-    await chamar('POST', `/ligas/${criada.id}/iniciar`, dono);
+    const { token: dono, visao: criada } = await novoTime('Clube das Rodadas');
+    const { corpo: amigos } = await chamar('POST', '/ligas', dono);
     const url = `/ligas/${criada.id}`;
     const data = async () => (await chamar('GET', url, dono)).corpo.liga.rodadaAtual;
 
@@ -244,13 +253,87 @@ describe('API', () => {
     assert.deepEqual(alheia.resultado.eventos, []);
     const completa = (await chamar('GET', `${url}/partidas/${alheia.id}`, dono)).corpo;
     assert.ok(completa.resultado.eventos.length > 0);
+
+    // A liga de amigos não iniciada não joga, por mais que o tempo passe.
+    await processarRodadas(banco, MEIO_DIA + 30 * HORA);
+    assert.equal((await chamar('GET', `/ligas/${amigos.id}`, dono)).corpo.liga.rodadaAtual, 1);
+  });
+});
+
+describe('liga de amigos com o time único', () => {
+  it('joga às 10h, 15h e 20h, usa o time do Mundo e não gasta a energia dele', async () => {
+    // Criada às 11h: a liga de amigos começa às 10h do dia seguinte, e o Mundo, às 12h de hoje.
+    const DEZ_DA_MANHA = MEIO_DIA + 22 * HORA;
+    const banco = new BancoSqlite(':memory:');
+    const api = criarApi(banco, { relogio: () => MEIO_DIA - HORA, contasPorHora: 100, contasAnonimas: true });
+    await new Promise<void>((pronto) => { api.listen(0, '127.0.0.1', pronto); });
+    const base = `http://127.0.0.1:${(api.address() as AddressInfo).port}`;
+    const dono = criarCliente((await criarConta(base)).token, base);
+    const meu = (v: VisaoLiga) => v.liga.clubes.find((c) => c.id === v.meuClubeId)!;
+
+    const mundo = await dono.entrarMundo('Time Único');
+    const criada = await dono.criarLiga();
+    assert.equal((await dono.iniciar(criada.id)).iniciada, true);
+    await dono.salvarEscalacao(mundo.id, { ...meu(mundo).escalacao!, estilo: 'ofensivo' }, false);
+
+    await processarRodadas(banco, DEZ_DA_MANHA - 1);
+    assert.equal((await dono.liga(criada.id)).liga.rodadaAtual, 1);
+    const antes = await dono.liga(mundo.id);
+    assert.equal(antes.liga.rodadaAtual, 4);
+
+    await processarRodadas(banco, DEZ_DA_MANHA);
+    const amigos = await dono.liga(criada.id);
+    const depois = await dono.liga(mundo.id);
+    assert.equal(amigos.liga.rodadaAtual, 2);
+    assert.equal(meu(amigos).escalacao!.estilo, 'ofensivo', 'a escalação do Mundo vale aqui');
+    assert.ok(meu(amigos).elenco.every((j) => j.id > 1_000_000));
+    assert.equal(depois.liga.rodadaAtual, 4, 'às 10h o Mundo não joga');
+    assert.deepEqual(meu(depois).elenco, meu(antes).elenco, 'o jogo dos amigos não mexe no time');
+    assert.equal(meu(depois).saldo, meu(antes).saldo);
+
+    await processarRodadas(banco, DEZ_DA_MANHA + 5 * HORA);
+    assert.equal((await dono.liga(criada.id)).liga.rodadaAtual, 3);
+    assert.equal((await dono.liga(mundo.id)).liga.rodadaAtual, 5);
+
+    const calendario = await dono.calendario();
+    assert.ok(calendario.resultados.some((j) => j.tipo === 'amigos'));
+    assert.ok(calendario.resultados.some((j) => j.tipo === 'oficial'));
+    assert.ok(calendario.proximos.every((j, i, todos) => i === 0 || todos[i - 1].quando <= j.quando));
+    const proximoAmigos = calendario.proximos.find((j) => j.tipo === 'amigos')!;
+    const proximoMundo = calendario.proximos.find((j) => j.tipo === 'oficial')!;
+    const hora = (ms: number) => new Date(ms - 3 * HORA).getUTCHours();
+    assert.ok([10, 15, 20].includes(hora(proximoAmigos.quando)));
+    assert.ok([12, 18, 21].includes(hora(proximoMundo.quando)));
+
+    await new Promise((pronto) => { api.close(pronto); });
+    await banco.fechar();
   });
 
-  it('não joga liga que o dono ainda não iniciou', async () => {
-    const dono = await novaConta();
-    const { corpo } = await chamar('POST', '/ligas', dono, { nomeClube: 'Clube do Dono' });
-    await processarRodadas(banco, MEIO_DIA + 100 * HORA);
-    assert.equal((await chamar('GET', `/ligas/${corpo.id}`, dono)).corpo.liga.rodadaAtual, 1);
+  it('Mundo Oficial: 20 técnicos enchem a divisão 1 e o próximo abre a divisão 2', async () => {
+    const banco = new BancoSqlite(':memory:');
+    const api = criarApi(banco, { relogio: () => MEIO_DIA - HORA, contasPorHora: 1000, contasAnonimas: true });
+    await new Promise<void>((pronto) => { api.listen(0, '127.0.0.1', pronto); });
+    const base = `http://127.0.0.1:${(api.address() as AddressInfo).port}`;
+    const novo = async () => criarCliente((await criarConta(base)).token, base);
+    const clientes = [];
+    for (let n = 0; n < 20; n++) clientes.push(await novo());
+    const primeiro = await clientes[0].entrarMundo('Clube 0');
+    assert.equal(primeiro.liga.divisao, '1');
+    assert.equal(primeiro.iniciada, true);
+    for (let n = 1; n < 20; n++) assert.equal((await clientes[n].entrarMundo(`Clube ${n}`)).id, primeiro.id);
+    assert.equal((await clientes[3].entrarMundo('Clube 3')).liga.clubes.filter((c) => c.donoId).length, 20, 'entrar de novo não ocupa outra vaga');
+
+    const segunda = await (await novo()).entrarMundo('Clube 21');
+    assert.equal(segunda.liga.divisao, '2');
+    assert.equal(segunda.liga.grupo, 0);
+    assert.equal(segunda.liga.temporada, primeiro.liga.temporada);
+    const intruso = await novo();
+    await intruso.entrarMundo('Intruso FC');
+    await assert.rejects(intruso.entrar(segunda.codigo), (e: ErroApi) => e.status === 404);
+    assert.equal((await clientes[0].liga(primeiro.id)).liga.descem, 2);
+
+    await new Promise((pronto) => { api.close(pronto); });
+    await banco.fechar();
   });
 });
 
@@ -284,24 +367,26 @@ describe('cliente do app', () => {
     const dono = criarCliente((await criarConta(base)).token, base);
     const amigo = criarCliente((await criarConta(base)).token, base);
 
-    const criada = await dono.criarLiga('Clube do Dono', 'torneio', 'facil');
+    await dono.entrarMundo('Clube do Dono');
+    const mundo = await amigo.entrarMundo('Amigos FC');
+    const criada = await dono.criarLiga();
     assert.equal(criada.codigo.length, 6);
-    const entrou = await amigo.entrar(criada.codigo, 'Amigos FC');
+    const entrou = await amigo.entrar(criada.codigo);
     assert.equal(entrou.souDono, false);
     await assert.rejects(amigo.iniciar(criada.id), (e: ErroApi) => e.status === 403);
 
     assert.equal((await dono.iniciar(criada.id)).iniciada, true);
-    const clube = entrou.liga.clubes.find((c) => c.id === entrou.meuClubeId)!;
-    const salva = await amigo.salvarEscalacao(criada.id, { ...clube.escalacao!, estilo: 'ofensivo' }, false);
+    const clube = mundo.liga.clubes.find((c) => c.id === mundo.meuClubeId)!;
+    const salva = await amigo.salvarEscalacao(mundo.id, { ...clube.escalacao!, estilo: 'ofensivo' }, false);
     assert.equal(salva.liga.clubes.find((c) => c.id === salva.meuClubeId)!.assistente, false);
 
     agora = MEIO_DIA;
     await processarRodadas(banco, agora);
-    const visao = await amigo.liga(criada.id);
+    const visao = await amigo.liga(mundo.id);
     assert.equal(visao.liga.rodadaAtual, 2);
     const jogo = visao.liga.partidas.find((p) => p.resultado && (p.casaId === visao.meuClubeId || p.foraId === visao.meuClubeId))!;
-    assert.ok((await amigo.partida(criada.id, jogo.id)).resultado);
-    assert.equal((await amigo.ligas())[0].tecnicos, 2);
+    assert.ok((await amigo.partida(mundo.id, jogo.id)).resultado);
+    assert.equal((await amigo.ligas()).find((l) => l.tipo === 'amigos')!.tecnicos, 2);
 
     await new Promise((pronto) => { api.close(pronto); });
     await banco.fechar();
@@ -407,7 +492,7 @@ describe('login com Google', () => {
 
     const cliente = criarCliente(sessao.token, base);
     assert.deepEqual(await cliente.eu(), { nome: 'Ana', google: true });
-    await cliente.criarLiga('Clube da Ana', 'torneio', 'normal');
+    await cliente.entrarMundo('Clube da Ana');
 
     const segunda = await (await trocar((await obterCodigo()).get('codigo'), VERIFICADOR)).json() as { token: string };
     assert.notEqual(segunda.token, sessao.token);
@@ -493,7 +578,7 @@ describe('login com Google', () => {
   it('conta antiga sem Google mantém as ligas ao entrar', async () => {
     const antiga = await criarConta(base);
     const cliente = criarCliente(antiga.token, base);
-    await cliente.criarLiga('Clube Antigo', 'torneio', 'normal');
+    await cliente.entrarMundo('Clube Antigo');
     assert.equal((await cliente.eu()).google, false);
 
     perfil = valido('google-4');

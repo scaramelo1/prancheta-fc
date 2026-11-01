@@ -4,23 +4,23 @@ import type { IncomingMessage, Server, ServerResponse } from 'node:http';
 import { gzipSync } from 'node:zlib';
 
 import { aplicarDecisao, decisaoDoDia } from '../src/dominio/decisoes.ts';
-import { clubeDoDono, criarLiga, entrarNaLiga, escalacaoValida } from '../src/dominio/liga.ts';
-import type { Clube, Dificuldade, DuracaoLiga, Escalacao, Liga } from '../src/dominio/tipos.ts';
+import { levarTime } from '../src/dominio/amigos.ts';
+import { clubeDoDono, criarLiga, entrarNaLiga, escalacaoValida, tabelaGeral } from '../src/dominio/liga.ts';
+import type { Clube, Escalacao, Liga, Partida } from '../src/dominio/tipos.ts';
 import {
   ErroTransferencia, comprarDaMaquina, criarLeilao, darLance, ofertasDoDia, venderParaFora,
 } from '../src/dominio/transferencias.ts';
-import { proximoInicio } from './agenda.ts';
+import { HORAS_AMIGOS, horasDaLiga, inicioDaJanela, proximoInicio } from './agenda.ts';
 import type { Banco, Conta, RegistroLiga } from './banco.ts';
 import { emFila } from './fila.ts';
-import { entrarNoMundo } from './mundo.ts';
+import { entrarNoMundo, timeDaConta } from './mundo.ts';
 import { LoginGoogle, paginaDeRetorno } from './google.ts';
 import type { ConfigGoogle, UsuarioGoogle } from './google.ts';
 
 const TAMANHO_MAXIMO_CORPO = 16_000;
 const LIGAS_POR_CONTA = 3;
 const ALFABETO_CODIGO = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-const DIFICULDADES: Dificuldade[] = ['facil', 'normal', 'dificil'];
-const DURACOES: DuracaoLiga[] = ['torneio', 'temporada'];
+const JOGOS_NO_CALENDARIO = 30;
 
 class ErroHttp extends Error {
   status: number;
@@ -80,8 +80,9 @@ function visaoDaLiga({ id, codigo, donoId, janela, liga }: RegistroLiga, conta: 
     souDono: donoId === conta.id,
     iniciada: janela !== null,
     meuClubeId: clube?.id ?? null,
-    decisao: clube ? decisaoDoDia(liga, clube) : null,
-    mercado: ofertasDoDia(liga),
+    // O time só muda no Mundo Oficial: a liga de amigos não tem decisão nem mercado.
+    decisao: clube && liga.tipo === 'oficial' ? decisaoDoDia(liga, clube) : null,
+    mercado: liga.tipo === 'oficial' ? ofertasDoDia(liga) : [],
     liga: {
       ...liga,
       partidas: liga.partidas.map((p) => (
@@ -93,15 +94,41 @@ function visaoDaLiga({ id, codigo, donoId, janela, liga }: RegistroLiga, conta: 
   };
 }
 
-function resumoDaLiga({ id, codigo, janela, liga }: RegistroLiga, conta: Conta) {
+function resumoDaLiga({ id, codigo, donoId, janela, liga }: RegistroLiga, conta: Conta) {
+  const clube = clubeDoDono(liga, conta.id);
   return {
     id,
     codigo,
+    tipo: liga.tipo,
+    souDono: donoId === conta.id,
     iniciada: janela !== null,
     temporada: liga.temporada,
-    clube: clubeDoDono(liga, conta.id)?.nome ?? null,
+    clube: clube?.nome ?? null,
+    posicao: tabelaGeral(liga).findIndex((l) => l.clubeId === clube?.id) + 1,
     tecnicos: liga.clubes.filter((c) => c.donoId !== null).length,
   };
+}
+
+function jogosDaLiga({ id, codigo, janela, liga }: RegistroLiga, conta: Conta) {
+  const clube = clubeDoDono(liga, conta.id);
+  if (!clube || janela === null) return [];
+  const primeira = liga.inicioJanela ?? janela - liga.rodadaAtual + 2;
+  const nomeDe = (clubeId: number) => liga.clubes.find((c) => c.id === clubeId)?.nome ?? '';
+  const emCasa = (p: Partida) => p.casaId === clube.id;
+  return liga.partidas.filter((p) => emCasa(p) || p.foraId === clube.id).map((p) => ({
+    ligaId: id,
+    tipo: liga.tipo,
+    codigo,
+    partidaId: p.id,
+    quando: inicioDaJanela(primeira + p.rodada - 1, horasDaLiga(liga.tipo === 'oficial')),
+    competicao: p.competicao,
+    fase: p.fase,
+    emCasa: emCasa(p),
+    adversario: nomeDe(emCasa(p) ? p.foraId : p.casaId),
+    placar: p.resultado && (emCasa(p)
+      ? { meus: p.resultado.golsCasa, deles: p.resultado.golsFora }
+      : { meus: p.resultado.golsFora, deles: p.resultado.golsCasa }),
+  }));
 }
 
 export interface OpcoesApi {
@@ -153,6 +180,19 @@ export function criarApi(banco: Banco, opcoes: OpcoesApi = {}): Server {
     const registro = await banco.ligaPorId(id);
     if (!registro || !clubeDoDono(registro.liga, conta.id)) throw new ErroHttp(404, 'Liga não encontrada');
     return registro;
+  }
+
+  /** Mudanças no time só valem no Mundo Oficial: é lá que ele mora. */
+  async function ligaDoTime(id: string, conta: Conta) {
+    const registro = await ligaDoMembro(id, conta);
+    if (registro.liga.tipo !== 'oficial') throw new ErroHttp(409, 'O time é alterado no Mundo Oficial');
+    return registro;
+  }
+
+  async function timeObrigatorio(conta: Conta) {
+    const time = await timeDaConta(banco, conta.id);
+    if (!time) throw new ErroHttp(409, 'Crie seu time primeiro');
+    return time;
   }
 
   function abrirSessaoGoogle(usuario: UsuarioGoogle, req: IncomingMessage) {
@@ -238,21 +278,27 @@ export function criarApi(banco: Banco, opcoes: OpcoesApi = {}): Server {
       return ok((await banco.ligasDaConta(conta.id)).map((r) => resumoDaLiga(r, conta)));
     }
 
+    if (rota === 'GET /calendario') {
+      const ligas = await banco.ligasDaConta(conta.id);
+      const jogos = ligas.flatMap((r) => jogosDaLiga(r, conta)).sort((a, b) => a.quando - b.quando);
+      return ok({
+        proximos: jogos.filter((j) => !j.placar).slice(0, JOGOS_NO_CALENDARIO),
+        resultados: jogos.filter((j) => j.placar).slice(-JOGOS_NO_CALENDARIO).reverse(),
+      });
+    }
+
     if (rota === 'POST /ligas') {
-      const { nomeClube, dificuldade = 'normal', duracao = 'temporada' } = await lerCorpo(req);
-      const nome = validarNomeClube(nomeClube);
-      if (!DIFICULDADES.includes(dificuldade as Dificuldade)) throw new ErroHttp(400, 'Dificuldade inválida');
-      if (!DURACOES.includes(duracao as DuracaoLiga)) throw new ErroHttp(400, 'Duração inválida');
+      const time = await timeObrigatorio(conta);
       if (await banco.contarLigasCriadas(conta.id) >= LIGAS_POR_CONTA) throw new ErroHttp(409, 'Limite de ligas atingido');
 
       const id = randomUUID();
-      const liga: Liga = criarLiga(id, {
-        nomeClube: nome,
+      const liga = levarTime(criarLiga(id, {
+        nomeClube: time.nome,
         donoId: conta.id,
-        dificuldade: dificuldade as Dificuldade,
-        duracao: duracao as DuracaoLiga,
+        dificuldade: 'normal',
+        duracao: 'temporada',
         semente: randomInt(2 ** 31),
-      });
+      }), conta.id, time);
       const registro: RegistroLiga = { id, codigo: gerarCodigo(), donoId: conta.id, janela: null, liga };
       await banco.criarLiga(registro);
       return ok(visaoDaLiga(registro, conta), 201);
@@ -266,15 +312,15 @@ export function criarApi(banco: Banco, opcoes: OpcoesApi = {}): Server {
     }
 
     if (rota === 'POST /ligas/entrar') {
-      const { codigo, nomeClube } = await lerCorpo(req);
-      const nome = validarNomeClube(nomeClube);
+      const { codigo } = await lerCorpo(req);
       return ok(await emFila(async () => {
+        const time = await timeObrigatorio(conta);
         const registro = await banco.ligaPorCodigo(String(codigo ?? '').trim().toUpperCase());
         // No Mundo Oficial, a vaga é definida pelo servidor, e não por código.
         if (!registro || registro.liga.tipo === 'oficial') throw new ErroHttp(404, 'Código não encontrado');
         if (clubeDoDono(registro.liga, conta.id)) return visaoDaLiga(registro, conta);
         if (registro.liga.clubes.every((c) => c.donoId !== null)) throw new ErroHttp(409, 'A liga está cheia');
-        const liga = entrarNaLiga(registro.liga, conta.id, nome);
+        const liga = levarTime(entrarNaLiga(registro.liga, conta.id, time.nome), conta.id, time);
         await banco.salvarLiga(registro.id, liga, registro.janela);
         await banco.entrarNaLiga(registro.id, conta.id);
         return visaoDaLiga({ ...registro, liga }, conta);
@@ -296,7 +342,7 @@ export function criarApi(banco: Banco, opcoes: OpcoesApi = {}): Server {
     const transferir = async (acao: (liga: Liga, clube: Clube, jogadorId: number) => Liga, jogadorId: unknown) => {
       if (!Number.isInteger(jogadorId)) throw new ErroHttp(400, 'Informe o jogador');
       return ok(await emFila(async () => {
-        const registro = await ligaDoMembro(ligaId, conta);
+        const registro = await ligaDoTime(ligaId, conta);
         try {
           const liga = acao(registro.liga, clubeDoDono(registro.liga, conta.id) as Clube, jogadorId as number);
           await banco.salvarLiga(registro.id, liga, registro.janela);
@@ -333,8 +379,8 @@ export function criarApi(banco: Banco, opcoes: OpcoesApi = {}): Server {
         const registro = await ligaDoMembro(ligaId, conta);
         if (registro.donoId !== conta.id) throw new ErroHttp(403, 'Só quem criou a liga pode iniciar');
         if (registro.janela !== null) throw new ErroHttp(409, 'A liga já começou');
-        // A janela guardada é a anterior ao primeiro jogo, que será a próxima às 12h.
-        const janela = proximoInicio(relogio()) - 1;
+        // A janela guardada é a anterior ao primeiro jogo, que será o primeiro horário do dia seguinte.
+        const janela = proximoInicio(relogio(), HORAS_AMIGOS) - 1;
         await banco.salvarLiga(registro.id, registro.liga, janela);
         return visaoDaLiga({ ...registro, janela }, conta);
       }));
@@ -344,7 +390,7 @@ export function criarApi(banco: Banco, opcoes: OpcoesApi = {}): Server {
       const { escalacao, assistente } = await lerCorpo(req);
       if (typeof assistente !== 'boolean') throw new ErroHttp(400, 'Informe o assistente');
       return ok(await emFila(async () => {
-        const registro = await ligaDoMembro(ligaId, conta);
+        const registro = await ligaDoTime(ligaId, conta);
         const clube = clubeDoDono(registro.liga, conta.id);
         if (!clube || !escalacaoValida(clube, escalacao as Escalacao)) throw new ErroHttp(400, 'Escalação inválida');
         const liga = {
@@ -362,7 +408,7 @@ export function criarApi(banco: Banco, opcoes: OpcoesApi = {}): Server {
       const { aceitar } = await lerCorpo(req);
       if (typeof aceitar !== 'boolean') throw new ErroHttp(400, 'Informe a resposta');
       return ok(await emFila(async () => {
-        const registro = await ligaDoMembro(ligaId, conta);
+        const registro = await ligaDoTime(ligaId, conta);
         const clube = clubeDoDono(registro.liga, conta.id);
         const decisao = clube ? decisaoDoDia(registro.liga, clube) : null;
         if (!clube || !decisao) throw new ErroHttp(409, 'Não há decisão para hoje');

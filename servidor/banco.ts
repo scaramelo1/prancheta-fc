@@ -38,7 +38,8 @@ export interface Banco {
   ligasDaConta(contaId: string): Promise<RegistroLiga[]>;
   entrarNaLiga(ligaId: string, contaId: string): Promise<void>;
   contarLigasCriadas(contaId: string): Promise<number>;
-  ligasAtrasadas(janela: number): Promise<string[]>;
+  ligasAtrasadas(janela: number, oficiais: boolean): Promise<string[]>;
+  ligaOficialDaConta(contaId: string): Promise<RegistroLiga | null>;
   sairDaLiga(ligaId: string, contaId: string): Promise<void>;
   resumoOficiais(): Promise<ResumoOficial[]>;
   registrarAcesso(contaId: string, quandoMs: number): Promise<void>;
@@ -188,9 +189,19 @@ export class BancoSqlite implements Banco {
     return Number((linha as { n: number }).n);
   }
 
-  async ligasAtrasadas(janela: number) {
-    const linhas = this.db.prepare('SELECT id FROM liga WHERE janela IS NOT NULL AND janela < ?').all(janela);
+  /** Mundo e amigos têm horários próprios, então cada grupo tem a sua contagem de janelas. */
+  async ligasAtrasadas(janela: number, oficiais: boolean) {
+    const linhas = this.db.prepare(
+      `SELECT id FROM liga WHERE janela IS NOT NULL AND janela < ? AND dono_id ${oficiais ? '=' : '<>'} ?`,
+    ).all(janela, CONTA_DO_MUNDO);
     return (linhas as unknown as { id: string }[]).map((l) => l.id);
+  }
+
+  async ligaOficialDaConta(contaId: string) {
+    const linha = this.db.prepare(
+      'SELECT l.* FROM liga l JOIN membro m ON m.liga_id = l.id WHERE m.conta_id = ? AND l.dono_id = ?',
+    ).get(contaId, CONTA_DO_MUNDO);
+    return linha ? paraRegistro(linha as unknown as LinhaLiga) : null;
   }
 
   async sairDaLiga(ligaId: string, contaId: string) {

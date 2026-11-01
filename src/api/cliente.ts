@@ -1,5 +1,5 @@
 import type { Decisao } from '../dominio/decisoes.ts';
-import type { Dificuldade, DuracaoLiga, Escalacao, Liga, Partida } from '../dominio/tipos.ts';
+import type { Competicao, Escalacao, Fase, Liga, Partida, TipoCampeonato } from '../dominio/tipos.ts';
 import type { Oferta } from '../dominio/transferencias.ts';
 
 export const URL_API = 'https://fsadesigners.com.br/prancheta-api';
@@ -7,10 +7,32 @@ export const URL_API = 'https://fsadesigners.com.br/prancheta-api';
 export interface ResumoLiga {
   id: string;
   codigo: string;
+  tipo: TipoCampeonato;
+  souDono: boolean;
   iniciada: boolean;
   temporada: number;
   clube: string | null;
+  posicao: number;
   tecnicos: number;
+}
+
+export interface JogoDoCalendario {
+  ligaId: string;
+  tipo: TipoCampeonato;
+  codigo: string;
+  partidaId: number;
+  /** Milissegundos desde 1970. */
+  quando: number;
+  competicao: Competicao;
+  fase: Fase;
+  emCasa: boolean;
+  adversario: string;
+  placar: { meus: number; deles: number } | null;
+}
+
+export interface Calendario {
+  proximos: JogoDoCalendario[];
+  resultados: JogoDoCalendario[];
 }
 
 export interface VisaoLiga {
@@ -74,10 +96,9 @@ export function criarCliente(token: string, base = URL_API) {
     ligas: () => pedir<ResumoLiga[]>(base, '/ligas', token),
     liga: (id: string) => pedir<VisaoLiga>(base, `/ligas/${id}`, token),
     partida: (ligaId: string, id: number) => pedir<Partida>(base, `/ligas/${ligaId}/partidas/${id}`, token),
-    criarLiga: (nomeClube: string, duracao: DuracaoLiga, dificuldade: Dificuldade) =>
-      pedir<VisaoLiga>(base, '/ligas', token, 'POST', { nomeClube, duracao, dificuldade }),
-    entrar: (codigo: string, nomeClube: string) =>
-      pedir<VisaoLiga>(base, '/ligas/entrar', token, 'POST', { codigo, nomeClube }),
+    calendario: () => pedir<Calendario>(base, '/calendario', token),
+    criarLiga: () => pedir<VisaoLiga>(base, '/ligas', token, 'POST'),
+    entrar: (codigo: string) => pedir<VisaoLiga>(base, '/ligas/entrar', token, 'POST', { codigo }),
     entrarMundo: (nomeClube: string) => pedir<VisaoLiga>(base, '/mundo/entrar', token, 'POST', { nomeClube }),
     iniciar: (id: string) => pedir<VisaoLiga>(base, `/ligas/${id}/iniciar`, token, 'POST'),
     salvarEscalacao: (id: string, escalacao: Escalacao, assistente: boolean) =>

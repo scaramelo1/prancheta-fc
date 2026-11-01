@@ -1,7 +1,8 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import type { VisaoLiga } from '../../api/cliente';
 import { Aviso, Carregando, Chip, Escudo } from '../../componentes/ui';
 import { DATAS_DOS_TORNEIOS, DATAS_POR_TORNEIO, diaDaData, horarioDaData } from '../../dominio/calendario';
 import { clubePorId, partidasDaRodada, tabelaDaCompeticao, tabelaGeral, torneioAtual } from '../../dominio/liga';
@@ -61,10 +62,10 @@ function Rodadas({ liga, meuId }: { liga: Liga; meuId: number }) {
     <>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={estilos.chips}>
         {Array.from({ length: fim - inicio + 1 }, (_, i) => inicio + i).map((n) => (
-          <Chip key={n} texto={t.data(diaDaData(n), horarioDaData(n))} ativo={n === rodada} aoTocar={() => setRodada(n)} />
+          <Chip key={n} texto={t.data(diaDaData(n), horarioDaData(n, liga.tipo))} ativo={n === rodada} aoTocar={() => setRodada(n)} />
         ))}
       </ScrollView>
-      <Text style={estilos.titulo}>{t.data(diaDaData(rodada), horarioDaData(rodada))}</Text>
+      <Text style={estilos.titulo}>{t.data(diaDaData(rodada), horarioDaData(rodada, liga.tipo))}</Text>
       <View style={estilos.lista}>
         {partidasDaRodada(liga, rodada).map((p) => {
           const casa = clubePorId(liga, p.casaId);
@@ -75,7 +76,7 @@ function Rodadas({ liga, meuId }: { liga: Liga; meuId: number }) {
               key={p.id}
               accessibilityRole="button"
               disabled={!p.resultado}
-              onPress={() => router.push({ pathname: '/partida/[id]', params: { id: String(p.id), aoVivo: '0' } })}
+              onPress={() => router.push({ pathname: '/partida/[id]', params: { id: String(p.id), aoVivo: '0', ligaId: liga.id } })}
               style={[estilos.jogo, minha && estilos.linhaMinha]}
             >
               <Text style={[estilos.nome, estilos.direita]} numberOfLines={1}>{casa.nome}</Text>
@@ -94,11 +95,28 @@ function Rodadas({ liga, meuId }: { liga: Liga; meuId: number }) {
 type Vista = 'liga' | 'copa' | 'geral' | 'rodadas';
 
 export default function Tabela() {
-  const { pronta, liga, meuClube } = useLiga();
+  const { cliente, ligas, pronta, visao } = useLiga();
   const [vista, setVista] = useState<Vista>('liga');
+  const [ligaId, setLigaId] = useState<string | null>(null);
+  const [amigos, setAmigos] = useState<VisaoLiga | null>(null);
+
+  useEffect(() => {
+    setAmigos(null);
+    if (ligaId) cliente?.liga(ligaId).then(setAmigos).catch(() => setLigaId(null));
+  }, [cliente, ligaId]);
 
   if (!pronta) return <Carregando />;
-  if (!liga || !meuClube) return <Aviso texto={t.semLiga} />;
+  if (!visao) return <Aviso texto={t.semLiga} />;
+  const aberta = ligaId ? amigos : visao;
+  const deAmigos = ligas.filter((l) => l.tipo === 'amigos');
+  const escolha = deAmigos.length > 0 && (
+    <View style={estilos.chipsLinha}>
+      <Chip texto={t.mundoTitulo} ativo={!ligaId} aoTocar={() => setLigaId(null)} />
+      {deAmigos.map((l) => <Chip key={l.id} texto={t.ligaAmigos(l.codigo)} ativo={l.id === ligaId} aoTocar={() => setLigaId(l.id)} />)}
+    </View>
+  );
+  if (!aberta || aberta.meuClubeId === null) return <Carregando />;
+  const { liga, meuClubeId } = aberta;
 
   // Nas finais não há torneio em andamento; mostra o último, o de encerramento.
   const torneio = torneioAtual(liga) || 3;
@@ -110,6 +128,7 @@ export default function Tabela() {
 
   return (
     <ScrollView contentContainerStyle={estilos.tela}>
+      {escolha}
       <View style={estilos.chipsLinha}>
         <Chip texto={t.competicoes.liga} ativo={vista === 'liga'} aoTocar={() => setVista('liga')} />
         <Chip texto={t.competicoes.copa} ativo={vista === 'copa'} aoTocar={() => setVista('copa')} />
@@ -117,8 +136,8 @@ export default function Tabela() {
         <Chip texto={t.rodadas} ativo={vista === 'rodadas'} aoTocar={() => setVista('rodadas')} />
       </View>
       {vista === 'rodadas'
-        ? <Rodadas liga={liga} meuId={meuClube.id} />
-        : <Classificacao liga={liga} linhas={linhas[vista]} meuId={meuClube.id} zonas={liga.tipo === 'oficial' && vista === 'geral'} />}
+        ? <Rodadas key={liga.id} liga={liga} meuId={meuClubeId} />
+        : <Classificacao liga={liga} linhas={linhas[vista]} meuId={meuClubeId} zonas={liga.tipo === 'oficial' && vista === 'geral'} />}
       {liga.tipo === 'oficial' && vista === 'geral' && <Text style={estilos.legenda}>{t.legendaZonas}</Text>}
     </ScrollView>
   );

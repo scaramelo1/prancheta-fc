@@ -3,8 +3,10 @@
 App Android/iOS (Expo) de gerenciamento de futebol: monte o time, escolha a tática e dispute a
 temporada contra clubes da máquina. Todos os clubes e jogadores são fictícios.
 
-- **Clube**: cria a liga de 20 clubes ou entra por código de convite, mostra o próximo jogo, a decisão
-  do dia e o motivo do último resultado.
+Cada técnico tem **um time só**. Ele é criado uma vez, joga o Mundo Oficial e entra em todas as ligas de amigos.
+
+- **Clube**: cria o time, mostra o próximo jogo, a decisão do dia, o último resultado e as ligas de amigos.
+- **Jogos**: calendário com os próximos jogos e os resultados de todas as ligas, com data e hora.
 - **Mercado**: compra de clubes da máquina, venda rápida e leilão entre técnicos.
 - **Elenco**: nível do time, formação, estilo de jogo, assistente, energia e troca de titulares.
 - **Tabela**: liga, copa, classificação geral e resultados por data.
@@ -12,7 +14,8 @@ temporada contra clubes da máquina. Todos os clubes e jogadores são fictícios
 
 ## Temporada
 
-São 60 dias: 3 torneios de 19 dias e 3 dias de finais, com jogos às 12h, 18h e 21h.
+São 60 dias: 3 torneios de 19 dias e 3 dias de finais. O Mundo Oficial joga às 12h, 18h e 21h, e as ligas de
+amigos às 10h, 15h e 20h.
 
 - **Liga**: 38 rodadas por torneio, duas por dia. Os pontos dos 3 torneios formam a classificação geral.
 - **Copa**: uma rodada por dia. São 13 rodadas de pontos, e os 8 primeiros jogam quartas, semifinal e
@@ -48,10 +51,17 @@ antes de pagar, então não é caixa surpresa.
   craques de graça. O maior lance fica reservado; sem saldo no fim, o jogador fica onde está.
 - O elenco tem de 16 a 30 jogadores e pelo menos um goleiro. Nenhum leilão atravessa a virada da temporada.
 
+## Ligas de amigos
+
+- O time mora no Mundo Oficial, e só lá ele muda: escalação, mercado, leilão e decisões.
+- Antes de cada rodada, a liga de amigos recebe uma cópia do time (`src/dominio/amigos.ts`) e nada volta.
+  Por isso esses jogos não gastam energia, não causam lesões e não mudam o saldo.
+- As vagas sem técnico ficam com clubes da máquina, e quem criou a liga dá o início.
+
 ## Mundo Oficial
 
 - As ligas são sempre de 20 clubes e formam uma pirâmide: 1 liga na divisão 1, 2 na divisão 2, 4 na 3...
-- O técnico entra na divisão mais baixa que existe e assume um clube da máquina, herdando os pontos dele.
+- Criar o time é entrar no Mundo: o técnico vai para a divisão mais baixa e assume um clube da máquina, herdando os pontos dele.
   Sem vaga, abre a próxima liga, que joga depressa até alcançar o calendário das outras.
 - No fim da temporada, a liga manda os 4 últimos para baixo, 2 para cada liga logo abaixo, e recebe os 2
   primeiros de cada uma. O desempate é a classificação geral. Sem ligas abaixo, ninguém cai.
@@ -79,7 +89,7 @@ liga já estão no modelo para isso.
 `servidor/` usa só o Node 22 (HTTP e SQLite), sem dependências, e reaproveita `src/dominio`. O acesso ao
 banco fica na interface `Banco`, em `servidor/banco.ts`: para usar PostgreSQL, basta outra implementação.
 
-- Rodadas às 12h, 18h e 21h de Brasília. Se o servidor cair, as perdidas são jogadas na volta.
+- Rodadas no horário de Brasília. Se o servidor cair, as perdidas são jogadas na volta.
 - Login com o Google pelo navegador, com o servidor falando com o Google. Só o nome e o identificador
   da conta são guardados; os tokens de sessão ficam só como hash. As credenciais vão em
   `/etc/prancheta-fc.env` (`GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET`), fora do repositório.

@@ -1,7 +1,7 @@
 import type { TipoDecisao } from '../dominio/decisoes';
 import type { Raridade } from '../dominio/estrelas';
 import type { Motivo } from '../dominio/resumo';
-import type { Competicao, Dificuldade, DuracaoLiga, Estilo, Fase, Posicao } from '../dominio/tipos';
+import type { Competicao, Estilo, Fase, Posicao } from '../dominio/tipos';
 
 export type IdiomaApp = 'pt' | 'en' | 'es';
 
@@ -39,14 +39,21 @@ export interface Textos {
   foraDaLiga: string;
   confirmar: string;
   abaTabela: string;
-  novaLigaTitulo: string;
-  novaLigaTexto: string;
+  abaJogos: string;
+  criarTimeTitulo: string;
+  criarTimeTexto: string;
+  criarTime: string;
+  amigosTitulo: string;
+  amigosTexto: string;
+  ligaAmigos: (codigo: string) => string;
+  suaPosicaoAmigos: (posicao: number) => string;
+  jogosProximos: string;
+  jogosResultados: string;
+  semJogos: string;
+  dataEHora: (data: string, hora: string) => string;
+  jogoContra: (adversario: string, emCasa: boolean) => string;
   nomeClube: string;
   nomeClubeExemplo: string;
-  duracaoLiga: string;
-  duracoes: Record<DuracaoLiga, string>;
-  dificuldade: string;
-  dificuldades: Record<Dificuldade, string>;
   erroNome: string;
   diaHora: (dia: number, hora: string) => string;
   torneios: Record<number, string>;
@@ -65,18 +72,11 @@ export interface Textos {
   cancelar: string;
   semLiga: string;
   mundoTitulo: string;
-  mundoTexto: string;
-  entrarMundo: string;
   divisaoGrupo: (divisao: number, grupo: number) => string;
   legendaZonas: string;
-  entrarTitulo: string;
-  entrarTexto: string;
   codigoConvite: string;
   entrarLiga: string;
   erroCodigo: string;
-  outraLiga: string;
-  voltar: string;
-  conviteTitulo: string;
   conviteTexto: (codigo: string) => string;
   compartilhar: string;
   mensagemConvite: (codigo: string) => string;
@@ -178,14 +178,21 @@ const pt: Textos = {
   foraDaLiga: 'fora da liga',
   confirmar: 'Confirmar',
   abaTabela: 'Tabela',
-  novaLigaTitulo: 'Monte sua liga',
-  novaLigaTexto: 'Dê um nome ao seu clube. As vagas sem amigos ficam com clubes da máquina.',
+  abaJogos: 'Jogos',
+  criarTimeTitulo: 'Crie seu time',
+  criarTimeTexto: 'Você terá um time só. Ele disputa o Mundo Oficial e todas as ligas com amigos. Escolha bem o nome: ele não muda depois.',
+  criarTime: 'Criar meu time',
+  amigosTitulo: 'Ligas de amigos',
+  amigosTexto: 'Seu mesmo time joga às 10h, 15h e 20h. Esses jogos não gastam energia, não causam lesões e não mudam o saldo.',
+  ligaAmigos: (codigo) => `Amigos ${codigo}`,
+  suaPosicaoAmigos: (posicao) => `Você está em ${posicao}º lugar.`,
+  jogosProximos: 'Próximos jogos',
+  jogosResultados: 'Resultados',
+  semJogos: 'Nenhum jogo marcado.',
+  dataEHora: (data, hora) => `${data} às ${hora}`,
+  jogoContra: (adversario, emCasa) => `${emCasa ? 'Em casa' : 'Fora'} contra ${adversario}`,
   nomeClube: 'Nome do clube',
   nomeClubeExemplo: 'Ex.: Unidos da Vila',
-  duracaoLiga: 'Duração',
-  duracoes: { torneio: '1 torneio (19 dias)', temporada: 'Temporada (60 dias)' },
-  dificuldade: 'Dificuldade',
-  dificuldades: { facil: 'Fácil', normal: 'Normal', dificil: 'Difícil' },
   erroNome: 'Use de 3 a 24 letras no nome do clube.',
   diaHora: (dia, hora) => `Dia ${dia} · ${hora}`,
   torneios: { 0: 'Finais', 1: 'Torneio de Abertura', 2: 'Torneio Intermediário', 3: 'Torneio de Encerramento' },
@@ -202,26 +209,19 @@ const pt: Textos = {
   sairTitulo: 'Sair da conta?',
   sairTexto: 'Seu clube continua salvo. É só entrar de novo com o Google.',
   cancelar: 'Cancelar',
-  semLiga: 'Crie uma liga ou entre com um convite na aba Clube.',
+  semLiga: 'Crie seu time na aba Clube.',
   mundoTitulo: 'Mundo Oficial',
-  mundoTexto: 'Jogue contra técnicos de todo lugar. Quem chega começa na última divisão e sobe por acesso.',
-  entrarMundo: 'Entrar no Mundo Oficial',
   divisaoGrupo: (divisao, grupo) => `Divisão ${divisao} · Grupo ${String.fromCharCode(65 + grupo)}`,
   legendaZonas: 'Na classificação geral, verde sobe e vermelho desce ao fim da temporada.',
-  entrarTitulo: 'Tem um convite?',
-  entrarTexto: 'Digite o código que seu amigo enviou. Você assume um clube da liga.',
   codigoConvite: 'Código do convite',
   entrarLiga: 'Entrar na liga',
   erroCodigo: 'Digite o código de 6 letras.',
-  outraLiga: 'Criar ou entrar em outra liga',
-  voltar: 'Voltar',
-  conviteTitulo: 'Convide seus amigos',
-  conviteTexto: (codigo) => `Código da liga: ${codigo}. Cada amigo assume um clube da máquina.`,
+  conviteTexto: (codigo) => `Código da liga: ${codigo}. Cada amigo entra com o time dele.`,
   compartilhar: 'Enviar convite',
   mensagemConvite: (codigo) => `Entra na minha liga no Prancheta FC! Código: ${codigo}`,
   tecnicos: (n) => (n === 1 ? '1 técnico na liga' : `${n} técnicos na liga`),
   iniciarLiga: 'Iniciar a liga',
-  iniciarAviso: 'A primeira rodada será ao meio-dia. Amigos ainda podem entrar depois.',
+  iniciarAviso: 'A primeira rodada será às 10h do dia seguinte. Amigos ainda podem entrar depois.',
   aguardandoDono: 'Aguardando quem criou a liga dar o início.',
   comecaAoMeioDia: 'A liga começa no próximo meio-dia. Ajuste seu time até lá.',
   proximoJogoEm: 'Os jogos acontecem sozinhos às 12h, 18h e 21h.',
@@ -329,14 +329,21 @@ const en: Textos = {
   foraDaLiga: 'out of the league',
   confirmar: 'Confirm',
   abaTabela: 'Table',
-  novaLigaTitulo: 'Set up your league',
-  novaLigaTexto: 'Name your club. Places without friends go to computer clubs.',
+  abaJogos: 'Fixtures',
+  criarTimeTitulo: 'Create your team',
+  criarTimeTexto: 'You get one team. It plays the Official World and every league with friends. Choose the name well: it cannot be changed later.',
+  criarTime: 'Create my team',
+  amigosTitulo: 'Friends leagues',
+  amigosTexto: 'Your same team plays at 10h, 15h and 20h. These matches use no energy, cause no injuries and do not change your balance.',
+  ligaAmigos: (codigo) => `Friends ${codigo}`,
+  suaPosicaoAmigos: (posicao) => `You are in position ${posicao}.`,
+  jogosProximos: 'Upcoming matches',
+  jogosResultados: 'Results',
+  semJogos: 'No matches scheduled.',
+  dataEHora: (data, hora) => `${data} at ${hora}`,
+  jogoContra: (adversario, emCasa) => `${emCasa ? 'Home' : 'Away'} against ${adversario}`,
   nomeClube: 'Club name',
   nomeClubeExemplo: 'E.g. Riverside United',
-  duracaoLiga: 'Length',
-  duracoes: { torneio: '1 tournament (19 days)', temporada: 'Season (60 days)' },
-  dificuldade: 'Difficulty',
-  dificuldades: { facil: 'Easy', normal: 'Normal', dificil: 'Hard' },
   erroNome: 'Use 3 to 24 characters for the club name.',
   diaHora: (dia, hora) => `Day ${dia} · ${hora}`,
   torneios: { 0: 'Finals', 1: 'Opening Tournament', 2: 'Middle Tournament', 3: 'Closing Tournament' },
@@ -353,26 +360,19 @@ const en: Textos = {
   sairTitulo: 'Sign out?',
   sairTexto: 'Your club stays saved. Just sign in with Google again.',
   cancelar: 'Cancel',
-  semLiga: 'Create a league or use an invite in the Club tab.',
+  semLiga: 'Create your team in the Club tab.',
   mundoTitulo: 'Official World',
-  mundoTexto: 'Play against managers everywhere. Newcomers start in the lowest division and earn promotion.',
-  entrarMundo: 'Join the Official World',
   divisaoGrupo: (divisao, grupo) => `Division ${divisao} · Group ${String.fromCharCode(65 + grupo)}`,
   legendaZonas: 'In the overall table, green is promoted and red is relegated at the end of the season.',
-  entrarTitulo: 'Got an invite?',
-  entrarTexto: 'Enter the code your friend sent. You will take over a club in the league.',
   codigoConvite: 'Invite code',
   entrarLiga: 'Join league',
   erroCodigo: 'Enter the 6-letter code.',
-  outraLiga: 'Create or join another league',
-  voltar: 'Back',
-  conviteTitulo: 'Invite your friends',
-  conviteTexto: (codigo) => `League code: ${codigo}. Each friend takes over a computer club.`,
+  conviteTexto: (codigo) => `League code: ${codigo}. Each friend joins with their own team.`,
   compartilhar: 'Send invite',
   mensagemConvite: (codigo) => `Join my league on Prancheta FC! Code: ${codigo}`,
   tecnicos: (n) => (n === 1 ? '1 manager in the league' : `${n} managers in the league`),
   iniciarLiga: 'Start the league',
-  iniciarAviso: 'The first round is at noon. Friends can still join afterwards.',
+  iniciarAviso: 'The first round is at 10h the next day. Friends can still join afterwards.',
   aguardandoDono: 'Waiting for the league creator to start it.',
   comecaAoMeioDia: 'The league starts next noon. Get your team ready.',
   proximoJogoEm: 'Matches play automatically at 12h, 18h and 21h.',
@@ -480,14 +480,21 @@ const es: Textos = {
   foraDaLiga: 'fuera de la liga',
   confirmar: 'Confirmar',
   abaTabela: 'Tabla',
-  novaLigaTitulo: 'Arma tu liga',
-  novaLigaTexto: 'Ponle nombre a tu club. Las plazas sin amigos son para clubes de la máquina.',
+  abaJogos: 'Partidos',
+  criarTimeTitulo: 'Crea tu equipo',
+  criarTimeTexto: 'Tendrás un solo equipo. Juega el Mundo Oficial y todas las ligas con amigos. Elige bien el nombre: no se puede cambiar después.',
+  criarTime: 'Crear mi equipo',
+  amigosTitulo: 'Ligas de amigos',
+  amigosTexto: 'Tu mismo equipo juega a las 10h, 15h y 20h. Estos partidos no gastan energía, no causan lesiones y no cambian tu saldo.',
+  ligaAmigos: (codigo) => `Amigos ${codigo}`,
+  suaPosicaoAmigos: (posicao) => `Estás en el puesto ${posicao}.`,
+  jogosProximos: 'Próximos partidos',
+  jogosResultados: 'Resultados',
+  semJogos: 'No hay partidos programados.',
+  dataEHora: (data, hora) => `${data} a las ${hora}`,
+  jogoContra: (adversario, emCasa) => `${emCasa ? 'En casa' : 'Fuera'} contra ${adversario}`,
   nomeClube: 'Nombre del club',
   nomeClubeExemplo: 'Ej.: Unidos del Barrio',
-  duracaoLiga: 'Duración',
-  duracoes: { torneio: '1 torneo (19 días)', temporada: 'Temporada (60 días)' },
-  dificuldade: 'Dificultad',
-  dificuldades: { facil: 'Fácil', normal: 'Normal', dificil: 'Difícil' },
   erroNome: 'Usa de 3 a 24 letras en el nombre del club.',
   diaHora: (dia, hora) => `Día ${dia} · ${hora}`,
   torneios: { 0: 'Finales', 1: 'Torneo Apertura', 2: 'Torneo Intermedio', 3: 'Torneo Clausura' },
@@ -504,26 +511,19 @@ const es: Textos = {
   sairTitulo: '¿Cerrar sesión?',
   sairTexto: 'Tu club sigue guardado. Solo vuelve a entrar con Google.',
   cancelar: 'Cancelar',
-  semLiga: 'Crea una liga o entra con una invitación en la pestaña Club.',
+  semLiga: 'Crea tu equipo en la pestaña Club.',
   mundoTitulo: 'Mundo Oficial',
-  mundoTexto: 'Juega contra técnicos de todas partes. Quien llega empieza en la última división y asciende.',
-  entrarMundo: 'Entrar al Mundo Oficial',
   divisaoGrupo: (divisao, grupo) => `División ${divisao} · Grupo ${String.fromCharCode(65 + grupo)}`,
   legendaZonas: 'En la clasificación general, verde asciende y rojo desciende al final de la temporada.',
-  entrarTitulo: '¿Tienes una invitación?',
-  entrarTexto: 'Escribe el código que te envió tu amigo. Asumirás un club de la liga.',
   codigoConvite: 'Código de invitación',
   entrarLiga: 'Entrar a la liga',
   erroCodigo: 'Escribe el código de 6 letras.',
-  outraLiga: 'Crear o entrar a otra liga',
-  voltar: 'Volver',
-  conviteTitulo: 'Invita a tus amigos',
-  conviteTexto: (codigo) => `Código de la liga: ${codigo}. Cada amigo asume un club de la máquina.`,
+  conviteTexto: (codigo) => `Código de la liga: ${codigo}. Cada amigo entra con su equipo.`,
   compartilhar: 'Enviar invitación',
   mensagemConvite: (codigo) => `¡Entra a mi liga en Prancheta FC! Código: ${codigo}`,
   tecnicos: (n) => (n === 1 ? '1 entrenador en la liga' : `${n} entrenadores en la liga`),
   iniciarLiga: 'Iniciar la liga',
-  iniciarAviso: 'La primera jornada será al mediodía. Los amigos aún pueden entrar después.',
+  iniciarAviso: 'La primera jornada será a las 10h del día siguiente. Los amigos aún pueden entrar después.',
   aguardandoDono: 'Esperando a que quien creó la liga la inicie.',
   comecaAoMeioDia: 'La liga empieza el próximo mediodía. Prepara tu equipo.',
   proximoJogoEm: 'Los partidos se juegan solos a las 12h, 18h y 21h.',

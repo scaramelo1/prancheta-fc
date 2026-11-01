@@ -3,8 +3,8 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Alert, RefreshControl, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import type { VisaoLiga } from '../../api/cliente';
-import { Aviso, Botao, Carregando, Chip, Escudo, Estrelas } from '../../componentes/ui';
+import type { ResumoLiga, VisaoLiga } from '../../api/cliente';
+import { Aviso, Botao, Carregando, Escudo, Estrelas } from '../../componentes/ui';
 import { diaDaData, horarioDaData } from '../../dominio/calendario';
 import { nivelDoTime } from '../../dominio/escalacao';
 import { estrelasDe } from '../../dominio/estrelas';
@@ -13,13 +13,11 @@ import {
 } from '../../dominio/liga';
 import { numeroDaDivisao } from '../../dominio/mundo';
 import { explicarPartida } from '../../dominio/resumo';
-import type { Clube, Dificuldade, DuracaoLiga, Partida } from '../../dominio/tipos';
+import type { Clube, Partida } from '../../dominio/tipos';
 import { useLiga } from '../../hooks/useLiga';
 import { t } from '../../i18n';
 import { cores, espaco } from '../../tema';
 
-const DURACOES: DuracaoLiga[] = ['temporada', 'torneio'];
-const DIFICULDADES: Dificuldade[] = ['facil', 'normal', 'dificil'];
 const TAMANHO_CODIGO = 6;
 
 const abrirPartida = (id: number) =>
@@ -27,16 +25,14 @@ const abrirPartida = (id: number) =>
 
 const nomeValido = (nome: string) => nome.trim().length >= 3 && nome.trim().length <= 24;
 
-function Formularios({ aoVoltar }: { aoVoltar?: () => void }) {
-  const { criar, entrar, entrarMundo } = useLiga();
+/** O técnico tem um time só: ele é criado aqui uma vez e joga todas as ligas. */
+function CriarTime() {
+  const { criarTime } = useLiga();
   const [nome, setNome] = useState('');
-  const [codigo, setCodigo] = useState('');
-  const [duracao, setDuracao] = useState<DuracaoLiga>('temporada');
-  const [dificuldade, setDificuldade] = useState<Dificuldade>('normal');
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
-  const enviar = async (acao: () => Promise<void>) => {
+  const enviar = async () => {
     if (!nomeValido(nome)) {
       setErro(t.erroNome);
       return;
@@ -44,8 +40,7 @@ function Formularios({ aoVoltar }: { aoVoltar?: () => void }) {
     setEnviando(true);
     setErro(null);
     try {
-      await acao();
-      aoVoltar?.();
+      await criarTime(nome);
     } catch (falha) {
       setErro((falha as Error).message);
     } finally {
@@ -53,20 +48,11 @@ function Formularios({ aoVoltar }: { aoVoltar?: () => void }) {
     }
   };
 
-  const entrarComCodigo = () => {
-    if (codigo.trim().length !== TAMANHO_CODIGO) {
-      setErro(t.erroCodigo);
-      return;
-    }
-    enviar(() => entrar(codigo, nome));
-  };
-
   return (
     <ScrollView contentContainerStyle={estilos.tela} keyboardShouldPersistTaps="handled">
       <Image source={require('../../../assets/splash-icon.png')} style={estilos.logo} contentFit="contain" />
-      <Text style={estilos.titulo}>{t.novaLigaTitulo}</Text>
-      <Text style={estilos.suave}>{t.novaLigaTexto}</Text>
-
+      <Text style={estilos.titulo}>{t.criarTimeTitulo}</Text>
+      <Text style={estilos.suave}>{t.criarTimeTexto}</Text>
       <Text style={estilos.rotulo}>{t.nomeClube}</Text>
       <TextInput
         accessibilityLabel={t.nomeClube}
@@ -81,48 +67,7 @@ function Formularios({ aoVoltar }: { aoVoltar?: () => void }) {
         value={nome}
       />
       {erro && <Text style={estilos.erro}>{erro}</Text>}
-
-      <Text style={estilos.rotulo}>{t.mundoTitulo}</Text>
-      <Text style={estilos.suave}>{t.mundoTexto}</Text>
-      <Botao texto={t.entrarMundo} desativado={enviando} aoTocar={() => enviar(() => entrarMundo(nome))} />
-
-      <View style={estilos.separador} />
-      <Text style={estilos.rotulo}>{t.duracaoLiga}</Text>
-      <View style={estilos.linhaChips}>
-        {DURACOES.map((d) => (
-          <Chip key={d} texto={t.duracoes[d]} ativo={duracao === d} aoTocar={() => setDuracao(d)} />
-        ))}
-      </View>
-
-      <Text style={estilos.rotulo}>{t.dificuldade}</Text>
-      <View style={estilos.linhaChips}>
-        {DIFICULDADES.map((d) => (
-          <Chip key={d} texto={t.dificuldades[d]} ativo={dificuldade === d} aoTocar={() => setDificuldade(d)} />
-        ))}
-      </View>
-
-      <Botao texto={t.criarLiga} desativado={enviando} aoTocar={() => enviar(() => criar(nome, duracao, dificuldade))} />
-
-      <View style={estilos.separador} />
-      <Text style={estilos.titulo}>{t.entrarTitulo}</Text>
-      <Text style={estilos.suave}>{t.entrarTexto}</Text>
-      <TextInput
-        accessibilityLabel={t.codigoConvite}
-        autoCapitalize="characters"
-        autoCorrect={false}
-        maxLength={TAMANHO_CODIGO}
-        onChangeText={(texto) => {
-          setCodigo(texto.toUpperCase());
-          setErro(null);
-        }}
-        placeholder={t.codigoConvite}
-        placeholderTextColor={cores.textoSuave}
-        style={estilos.campo}
-        value={codigo}
-      />
-      <Botao secundario texto={t.entrarLiga} desativado={enviando} aoTocar={entrarComCodigo} />
-
-      {aoVoltar && <Botao secundario texto={t.voltar} aoTocar={aoVoltar} />}
+      <Botao texto={t.criarTime} desativado={enviando} aoTocar={enviar} />
     </ScrollView>
   );
 }
@@ -148,28 +93,85 @@ function Confronto({ casa, fora, placar, nivel }: { casa: Clube; fora: Clube; pl
 const nomeDaPartida = (p: Partida) =>
   [t.competicoes[p.competicao], t.fases[p.fase]].filter(Boolean).join(' · ');
 
-function Convite({ visao }: { visao: VisaoLiga }) {
-  const { iniciar } = useLiga();
-  const tecnicos = visao.liga.clubes.filter((c) => c.donoId !== null).length;
+function CartaoAmigos({ resumo }: { resumo: ResumoLiga }) {
+  const { iniciarAmigos } = useLiga();
+  const iniciar = () => {
+    iniciarAmigos(resumo.id).catch((falha: unknown) => Alert.alert((falha as Error).message));
+  };
   return (
     <View style={estilos.cartao}>
-      <Text style={estilos.rotuloCartao}>{t.conviteTitulo} · {t.tecnicos(tecnicos)}</Text>
-      <Text selectable style={estilos.codigo}>{visao.codigo}</Text>
-      <Text style={estilos.suave}>{t.conviteTexto(visao.codigo)}</Text>
-      <Botao secundario texto={t.compartilhar} aoTocar={() => Share.share({ message: t.mensagemConvite(visao.codigo) })} />
-      {!visao.iniciada && visao.souDono && (
+      <Text style={estilos.rotuloCartao}>{t.ligaAmigos(resumo.codigo)} · {t.tecnicos(resumo.tecnicos)}</Text>
+      {resumo.iniciada
+        ? <Text style={estilos.suave}>{t.suaPosicaoAmigos(resumo.posicao)}</Text>
+        : <Text style={estilos.suave}>{t.conviteTexto(resumo.codigo)}</Text>}
+      <Botao secundario texto={t.compartilhar} aoTocar={() => Share.share({ message: t.mensagemConvite(resumo.codigo) })} />
+      {!resumo.iniciada && resumo.souDono && (
         <>
           <Text style={estilos.suave}>{t.iniciarAviso}</Text>
           <Botao texto={t.iniciarLiga} aoTocar={iniciar} />
         </>
       )}
-      {!visao.iniciada && !visao.souDono && <Text style={estilos.alerta}>{t.aguardandoDono}</Text>}
+      {!resumo.iniciada && !resumo.souDono && <Text style={estilos.alerta}>{t.aguardandoDono}</Text>}
     </View>
   );
 }
 
-function Painel({ visao, clube, aoOutraLiga }: { visao: VisaoLiga; clube: Clube; aoOutraLiga: () => void }) {
-  const { decidir, ligas, nomeTecnico, recarregar, sair, selecionar } = useLiga();
+function LigasDeAmigos() {
+  const { criarAmigos, entrarAmigos, ligas } = useLiga();
+  const [codigo, setCodigo] = useState('');
+  const [erro, setErro] = useState<string | null>(null);
+  const [enviando, setEnviando] = useState(false);
+
+  const enviar = async (acao: () => Promise<void>) => {
+    setEnviando(true);
+    setErro(null);
+    try {
+      await acao();
+      setCodigo('');
+    } catch (falha) {
+      setErro((falha as Error).message);
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  const entrarComCodigo = () => {
+    if (codigo.trim().length !== TAMANHO_CODIGO) {
+      setErro(t.erroCodigo);
+      return;
+    }
+    enviar(() => entrarAmigos(codigo));
+  };
+
+  return (
+    <>
+      <Text style={estilos.titulo}>{t.amigosTitulo}</Text>
+      <Text style={estilos.suave}>{t.amigosTexto}</Text>
+      {ligas.filter((l) => l.tipo === 'amigos').map((l) => <CartaoAmigos key={l.id} resumo={l} />)}
+      <Botao texto={t.criarLiga} desativado={enviando} aoTocar={() => enviar(criarAmigos)} />
+      <TextInput
+        accessibilityLabel={t.codigoConvite}
+        autoCapitalize="characters"
+        autoCorrect={false}
+        maxLength={TAMANHO_CODIGO}
+        onChangeText={(texto) => {
+          setCodigo(texto.toUpperCase());
+          setErro(null);
+        }}
+        placeholder={t.codigoConvite}
+        placeholderTextColor={cores.textoSuave}
+        style={estilos.campo}
+        value={codigo}
+      />
+      {erro && <Text style={estilos.erro}>{erro}</Text>}
+      <Botao secundario texto={t.entrarLiga} desativado={enviando} aoTocar={entrarComCodigo} />
+      <View style={estilos.separador} />
+    </>
+  );
+}
+
+function Painel({ visao, clube }: { visao: VisaoLiga; clube: Clube }) {
+  const { decidir, nomeTecnico, recarregar, sair } = useLiga();
   const { liga, decisao } = visao;
   const [atualizando, setAtualizando] = useState(false);
   const torneio = torneioAtual(liga);
@@ -200,26 +202,16 @@ function Painel({ visao, clube, aoOutraLiga }: { visao: VisaoLiga; clube: Clube;
       contentContainerStyle={estilos.tela}
       refreshControl={<RefreshControl refreshing={atualizando} onRefresh={atualizar} tintColor={cores.destaque} />}
     >
-      {ligas.length > 1 && (
-        <View style={estilos.linhaChips}>
-          {ligas.map((l) => (
-            <Chip key={l.id} texto={l.clube ?? l.codigo} ativo={l.id === visao.id} aoTocar={() => selecionar(l.id)} />
-          ))}
-        </View>
-      )}
-
       <View style={estilos.cabecalho}>
         <Escudo clube={clube} tamanho={56} />
         <View style={estilos.flex}>
           <Text style={estilos.titulo} numberOfLines={1}>{clube.nome}</Text>
-          {liga.tipo === 'oficial' && <Text style={estilos.rotuloCartao}>{t.divisaoGrupo(numeroDaDivisao(liga), liga.grupo ?? 0)}</Text>}
+          <Text style={estilos.rotuloCartao}>{t.divisaoGrupo(numeroDaDivisao(liga), liga.grupo ?? 0)}</Text>
           <Text style={estilos.suave}>{t.posicaoAtual(posicao, tabela[posicao - 1].pontos)}</Text>
           <Text style={estilos.suave}>{t.nivelTime}: {nivelDoTime(clube)}</Text>
           <Text style={estilos.suave}>{t.saldo(clube.saldo.toLocaleString())}</Text>
         </View>
       </View>
-
-      {liga.tipo !== 'oficial' && (!visao.iniciada || aguardaPrimeiroJogo) && <Convite visao={visao} />}
 
       {encerrada && (
         <View style={estilos.cartao}>
@@ -294,7 +286,7 @@ function Painel({ visao, clube, aoOutraLiga }: { visao: VisaoLiga; clube: Clube;
         </View>
       )}
 
-      <Botao secundario texto={t.outraLiga} aoTocar={aoOutraLiga} />
+      <LigasDeAmigos />
       <Botao secundario texto={`${t.sair} (${nomeTecnico ?? ''})`} aoTocar={confirmarSaida} />
     </ScrollView>
   );
@@ -302,7 +294,6 @@ function Painel({ visao, clube, aoOutraLiga }: { visao: VisaoLiga; clube: Clube;
 
 export default function TelaClube() {
   const { pronta, semConexao, visao, meuClube, recarregar } = useLiga();
-  const [outraLiga, setOutraLiga] = useState(false);
 
   // Os jogos acontecem no servidor: ao voltar para a tela, busca o que mudou.
   useFocusEffect(useCallback(() => {
@@ -318,10 +309,8 @@ export default function TelaClube() {
       </View>
     );
   }
-  if (!visao || !meuClube || outraLiga) {
-    return <Formularios aoVoltar={visao && meuClube ? () => setOutraLiga(false) : undefined} />;
-  }
-  return <Painel visao={visao} clube={meuClube} aoOutraLiga={() => setOutraLiga(true)} />;
+  if (!visao || !meuClube) return <CriarTime />;
+  return <Painel visao={visao} clube={meuClube} />;
 }
 
 const estilos = StyleSheet.create({
@@ -345,7 +334,6 @@ const estilos = StyleSheet.create({
   },
   erro: { color: cores.erro, fontSize: 13 },
   alerta: { color: cores.destaque, fontSize: 13, textAlign: 'center' },
-  linhaChips: { flexDirection: 'row', flexWrap: 'wrap', gap: espaco.p },
   separador: { height: StyleSheet.hairlineWidth, backgroundColor: cores.borda, marginVertical: espaco.p },
   codigo: { color: cores.texto, fontSize: 30, fontWeight: '800', letterSpacing: 4, textAlign: 'center' },
   textoDecisao: { color: cores.texto, fontSize: 15, lineHeight: 21 },

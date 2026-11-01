@@ -11,11 +11,10 @@ import { ErroApi, aguardarLoginGoogle, criarCliente, urlDoLogin } from '../api/c
 import type { Cliente, ResumoLiga, VisaoLiga } from '../api/cliente';
 import { apagarConfig, lerConfig, salvarConfig } from '../db/repositorio';
 import { clubePorId } from '../dominio/liga';
-import type { Clube, Dificuldade, DuracaoLiga, Escalacao, Liga } from '../dominio/tipos';
+import type { Clube, Escalacao, Liga } from '../dominio/tipos';
 import { t } from '../i18n';
 
 const CHAVE_TOKEN = 'token';
-const CHAVE_LIGA = 'liga';
 /** Cada pedido espera até 25 s no servidor: dá uns 5 minutos para escolher a conta. */
 const TENTATIVAS_DE_LOGIN = 12;
 /** Depois de fechar o navegador, o tempo para a sessão ainda chegar. */
@@ -33,18 +32,19 @@ interface ValorLiga {
   /** Null até entrar com o Google. */
   nomeTecnico: string | null;
   cliente: Cliente | null;
+  /** Todas as ligas do técnico: o Mundo Oficial e as de amigos. */
   ligas: ResumoLiga[];
+  /** O Mundo Oficial, onde o time único mora. Null até o técnico criar o time. */
   visao: VisaoLiga | null;
   liga: Liga | null;
   meuClube: Clube | null;
   entrarComGoogle: () => Promise<void>;
   sair: () => Promise<void>;
   recarregar: () => Promise<void>;
-  selecionar: (id: string) => Promise<void>;
-  criar: (nomeClube: string, duracao: DuracaoLiga, dificuldade: Dificuldade) => Promise<void>;
-  entrar: (codigo: string, nomeClube: string) => Promise<void>;
-  entrarMundo: (nomeClube: string) => Promise<void>;
-  iniciar: () => void;
+  criarTime: (nomeClube: string) => Promise<void>;
+  criarAmigos: () => Promise<void>;
+  entrarAmigos: (codigo: string) => Promise<void>;
+  iniciarAmigos: (id: string) => Promise<void>;
   salvarEscalacao: (escalacao: Escalacao, assistente: boolean) => void;
   decidir: (aceitar: boolean) => void;
   comprar: (jogadorId: number) => void;
@@ -77,7 +77,6 @@ export function ProvedorLiga({ children }: { children: ReactNode }) {
 
   const fecharSessao = useCallback(async () => {
     await apagarConfig(db, CHAVE_TOKEN);
-    await apagarConfig(db, CHAVE_LIGA);
     clienteRef.current = null;
     ligaAberta.current = null;
     setCliente(null);
@@ -101,8 +100,7 @@ export function ProvedorLiga({ children }: { children: ReactNode }) {
   const aplicar = useCallback((nova: VisaoLiga) => {
     ligaAberta.current = nova.id;
     setVisao(nova);
-    salvarConfig(db, CHAVE_LIGA, nova.id).catch(() => undefined);
-  }, [db]);
+  }, []);
 
   const recarregar = useCallback(async () => {
     try {
@@ -114,10 +112,13 @@ export function ProvedorLiga({ children }: { children: ReactNode }) {
       setNomeTecnico(eu.nome);
       const lista = await api.ligas();
       setLigas(lista);
-      const salva = ligaAberta.current ?? await lerConfig(db, CHAVE_LIGA).catch(() => null);
-      const id = lista.some((l) => l.id === salva) ? salva : lista[0]?.id;
-      if (id) aplicar(await api.liga(id));
-      else setVisao(null);
+      const oficial = lista.find((l) => l.tipo === 'oficial');
+      if (oficial) {
+        aplicar(await api.liga(oficial.id));
+      } else {
+        ligaAberta.current = null;
+        setVisao(null);
+      }
       setSemConexao(false);
     } catch (erro) {
       if (erro instanceof ErroApi && erro.status === 401) await fecharSessao();
@@ -125,7 +126,7 @@ export function ProvedorLiga({ children }: { children: ReactNode }) {
     } finally {
       setPronta(true);
     }
-  }, [aplicar, db, fecharSessao, obterCliente]);
+  }, [aplicar, fecharSessao, obterCliente]);
 
   const entrarComGoogle = useCallback(async () => {
     // O código só vale junto com o verificador, que nunca sai do aparelho.
@@ -174,37 +175,8 @@ export function ProvedorLiga({ children }: { children: ReactNode }) {
     await fecharSessao();
   }, [fecharSessao]);
 
-  const selecionar = useCallback(async (id: string) => {
-    try {
-      const api = await clienteLogado();
-      aplicar(await api.liga(id));
-    } catch (erro) {
-      Alert.alert(mensagemDe(erro));
-    }
-  }, [aplicar, clienteLogado]);
-
   /** Criar e entrar devolvem o erro para o formulário, que continua aberto. */
-  const criar = useCallback(async (nomeClube: string, duracao: DuracaoLiga, dificuldade: Dificuldade) => {
-    try {
-      const api = await clienteLogado();
-      aplicar(await api.criarLiga(nomeClube, duracao, dificuldade));
-      setLigas(await api.ligas());
-    } catch (erro) {
-      throw new Error(mensagemDe(erro));
-    }
-  }, [aplicar, clienteLogado]);
-
-  const entrar = useCallback(async (codigo: string, nomeClube: string) => {
-    try {
-      const api = await clienteLogado();
-      aplicar(await api.entrar(codigo, nomeClube));
-      setLigas(await api.ligas());
-    } catch (erro) {
-      throw new Error(mensagemDe(erro));
-    }
-  }, [aplicar, clienteLogado]);
-
-  const entrarMundo = useCallback(async (nomeClube: string) => {
+  const criarTime = useCallback(async (nomeClube: string) => {
     try {
       const api = await clienteLogado();
       aplicar(await api.entrarMundo(nomeClube));
@@ -213,6 +185,22 @@ export function ProvedorLiga({ children }: { children: ReactNode }) {
       throw new Error(mensagemDe(erro));
     }
   }, [aplicar, clienteLogado]);
+
+  const naLista = useCallback(async (acao: (api: Cliente) => Promise<unknown>) => {
+    try {
+      const api = await clienteLogado();
+      await acao(api);
+      setLigas(await api.ligas());
+    } catch (erro) {
+      throw new Error(mensagemDe(erro));
+    }
+  }, [clienteLogado]);
+
+  const criarAmigos = useCallback(() => naLista((api) => api.criarLiga()), [naLista]);
+
+  const entrarAmigos = useCallback((codigo: string) => naLista((api) => api.entrar(codigo)), [naLista]);
+
+  const iniciarAmigos = useCallback((id: string) => naLista((api) => api.iniciar(id)), [naLista]);
 
   const executar = useCallback(async (acao: (api: Cliente, id: string) => Promise<VisaoLiga>) => {
     const id = ligaAberta.current;
@@ -225,10 +213,6 @@ export function ProvedorLiga({ children }: { children: ReactNode }) {
       recarregar();
     }
   }, [aplicar, recarregar]);
-
-  const iniciar = useCallback(() => {
-    executar((api, id) => api.iniciar(id));
-  }, [executar]);
 
   const salvarEscalacao = useCallback((escalacao: Escalacao, assistente: boolean) => {
     // Mostra a troca na hora; se o servidor recusar, o recarregamento desfaz.
@@ -274,11 +258,10 @@ export function ProvedorLiga({ children }: { children: ReactNode }) {
     entrarComGoogle,
     sair,
     recarregar,
-    selecionar,
-    criar,
-    entrar,
-    entrarMundo,
-    iniciar,
+    criarTime,
+    criarAmigos,
+    entrarAmigos,
+    iniciarAmigos,
     salvarEscalacao,
     decidir,
     comprar,
@@ -286,8 +269,8 @@ export function ProvedorLiga({ children }: { children: ReactNode }) {
     leiloar,
     darLance,
   }), [
-    cliente, comprar, criar, darLance, decidir, entrar, entrarComGoogle, entrarMundo, iniciar, leiloar, ligas, nomeTecnico, pronta, recarregar, sair,
-    salvarEscalacao, selecionar, semConexao, vender, visao,
+    cliente, comprar, criarAmigos, criarTime, darLance, decidir, entrarAmigos, entrarComGoogle, iniciarAmigos, leiloar, ligas, nomeTecnico, pronta,
+    recarregar, sair, salvarEscalacao, semConexao, vender, visao,
   ]);
 
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>;

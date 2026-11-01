@@ -2,6 +2,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import type { VisaoLiga } from '../../api/cliente';
 import { Aviso, Botao, Carregando, Chip, Escudo } from '../../componentes/ui';
 import { clubePorId } from '../../dominio/liga';
 import { explicarPartida } from '../../dominio/resumo';
@@ -25,19 +26,22 @@ function narrar(e: Evento) {
 }
 
 export default function Partida() {
-  const { id, aoVivo } = useLocalSearchParams<{ id: string; aoVivo?: string }>();
-  const { cliente, liga, meuClube } = useLiga();
+  const { id, aoVivo, ligaId: ligaDoParametro } = useLocalSearchParams<{ id: string; aoVivo?: string; ligaId?: string }>();
+  const { cliente, visao } = useLiga();
+  const [amigos, setAmigos] = useState<VisaoLiga | null>(null);
   const [minuto, setMinuto] = useState(aoVivo === '1' ? 0 : FIM);
   const [soGols, setSoGols] = useState(false);
   const [partida, setPartida] = useState<DadosPartida | null>(null);
   const [falhou, setFalhou] = useState(false);
 
   // A narração completa só vem do servidor quando a partida é aberta.
-  const ligaId = liga?.id;
+  const mundoId = visao?.id;
+  const ligaId = ligaDoParametro ?? mundoId;
   useEffect(() => {
     if (!cliente || !ligaId) return;
     cliente.partida(ligaId, Number(id)).then(setPartida).catch(() => setFalhou(true));
-  }, [cliente, id, ligaId]);
+    if (ligaId !== mundoId) cliente.liga(ligaId).then(setAmigos).catch(() => setFalhou(true));
+  }, [cliente, id, ligaId, mundoId]);
 
   useEffect(() => {
     if (!partida || minuto >= FIM) return;
@@ -46,10 +50,13 @@ export default function Partida() {
   }, [minuto, partida]);
 
   if (falhou) return <Aviso texto={t.partidaNaoEncontrada} />;
-  if (!liga || !partida) return <Carregando />;
+  const aberta = ligaId === mundoId ? visao : amigos;
+  if (!aberta || !partida) return <Carregando />;
   if (!partida.resultado) return <Aviso texto={t.partidaNaoEncontrada} />;
 
   const { resultado } = partida;
+  const { liga } = aberta;
+  const meuClube = aberta.meuClubeId === null ? null : clubePorId(liga, aberta.meuClubeId);
   const casa = clubePorId(liga, partida.casaId);
   const fora = clubePorId(liga, partida.foraId);
   const lances = resultado.eventos.filter((e) => e.minuto <= minuto);

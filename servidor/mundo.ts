@@ -1,6 +1,6 @@
 import { randomInt, randomUUID } from 'node:crypto';
 
-import { entrarNaLiga, jogarRodada, novaTemporada, temporadaEncerrada } from '../src/dominio/liga.ts';
+import { clubeDoDono, entrarNaLiga, jogarRodada, novaTemporada, temporadaEncerrada } from '../src/dominio/liga.ts';
 import {
   QUEDAS_POR_LIGA_DE_BAIXO, criarLigaOficial, destinoDoTecnico, devolverAMaquina, grupoDeCima, numeroDaDivisao,
   planejarAcessos, ranquear, receberClube, reforcarMaquina, retirarClube,
@@ -26,7 +26,7 @@ async function abrirLiga(banco: Banco, posicao: PosicaoNoMundo, gerarCodigo: () 
 
   // O calendário é um só: a liga nova joga depressa até alcançar as outras.
   if (referencia) {
-    liga = { ...liga, temporada: referencia.liga.temporada };
+    liga = { ...liga, temporada: referencia.liga.temporada, inicioJanela: referencia.liga.inicioJanela };
     while (liga.rodadaAtual < referencia.liga.rodadaAtual && !temporadaEncerrada(liga)) {
       liga = jogarRodada(liga);
       await pausa();
@@ -48,11 +48,17 @@ async function abrirLiga(banco: Banco, posicao: PosicaoNoMundo, gerarCodigo: () 
   return registro;
 }
 
+/** O time único do técnico: é sempre o clube dele no Mundo Oficial. */
+export async function timeDaConta(banco: Banco, contaId: string) {
+  const registro = await banco.ligaOficialDaConta(contaId);
+  return registro ? clubeDoDono(registro.liga, contaId) ?? null : null;
+}
+
 /** Chamar dentro da fila. Quem já está no Mundo Oficial volta para a própria liga. */
 export async function entrarNoMundo(
   banco: Banco, contaId: string, nomeClube: string, gerarCodigo: () => string, janelaInicial: number,
 ) {
-  const atual = (await banco.ligasDaConta(contaId)).find((r) => r.liga.tipo === 'oficial');
+  const atual = await banco.ligaOficialDaConta(contaId);
   if (atual) return atual;
 
   const destino = destinoDoTecnico(await banco.resumoOficiais());
@@ -123,7 +129,7 @@ export async function virarMundo(banco: Banco, janelaAtual: number, agoraMs: num
       }
 
       const nova: Liga = reforcarMaquina(novaTemporada({ ...liga, transferencias: [] }));
-      await banco.salvarLiga(id, jogarRodada(nova), janelaDaVirada);
+      await banco.salvarLiga(id, { ...jogarRodada(nova), inicioJanela: janelaDaVirada }, janelaDaVirada);
       await pausa();
     }
   });
