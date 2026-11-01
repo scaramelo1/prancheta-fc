@@ -37,7 +37,6 @@ export interface Banco {
   ligaPorCodigo(codigo: string): Promise<RegistroLiga | null>;
   ligasDaConta(contaId: string): Promise<RegistroLiga[]>;
   entrarNaLiga(ligaId: string, contaId: string): Promise<void>;
-  contarLigasCriadas(contaId: string): Promise<number>;
   ligasAtrasadas(janela: number, oficiais: boolean): Promise<string[]>;
   ligaOficialDaConta(contaId: string): Promise<RegistroLiga | null>;
   sairDaLiga(ligaId: string, contaId: string): Promise<void>;
@@ -182,11 +181,6 @@ export class BancoSqlite implements Banco {
 
   async entrarNaLiga(ligaId: string, contaId: string) {
     this.db.prepare('INSERT OR IGNORE INTO membro (liga_id, conta_id) VALUES (?, ?)').run(ligaId, contaId);
-  }
-
-  async contarLigasCriadas(contaId: string) {
-    const linha = this.db.prepare('SELECT COUNT(*) AS n FROM liga WHERE dono_id = ?').get(contaId);
-    return Number((linha as { n: number }).n);
   }
 
   /** Mundo e amigos têm horários próprios, então cada grupo tem a sua contagem de janelas. */

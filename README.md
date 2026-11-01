@@ -3,7 +3,7 @@
 App Android/iOS (Expo) de gerenciamento de futebol: monte o time, escolha a tática e dispute a
 temporada contra clubes da máquina. Todos os clubes e jogadores são fictícios.
 
-Cada técnico tem **um time só**. Ele é criado uma vez, joga o Mundo Oficial e entra em todas as ligas de amigos.
+Cada técnico tem **um time só**. Ele é criado uma vez, joga o Mundo Oficial e entra em todos os torneios de amigos.
 
 - **Clube**: cria o time, mostra o próximo jogo, a decisão do dia, o último resultado e as ligas de amigos.
 - **Jogos**: calendário com os próximos jogos e os resultados de todas as ligas, com data e hora.
@@ -14,8 +14,7 @@ Cada técnico tem **um time só**. Ele é criado uma vez, joga o Mundo Oficial e
 
 ## Temporada
 
-São 60 dias: 3 torneios de 19 dias e 3 dias de finais. O Mundo Oficial joga às 12h, 18h e 21h, e as ligas de
-amigos às 10h, 15h e 20h.
+São 60 dias: 3 torneios de 19 dias e 3 dias de finais. O Mundo Oficial joga às 12h, 18h e 21h.
 
 - **Liga**: 38 rodadas por torneio, duas por dia. Os pontos dos 3 torneios formam a classificação geral.
 - **Copa**: uma rodada por dia. São 13 rodadas de pontos, e os 8 primeiros jogam quartas, semifinal e
@@ -51,16 +50,19 @@ antes de pagar, então não é caixa surpresa.
   craques de graça. O maior lance fica reservado; sem saldo no fim, o jogador fica onde está.
 - O elenco tem de 16 a 30 jogadores e pelo menos um goleiro. Nenhum leilão atravessa a virada da temporada.
 
-## Ligas de amigos
+## Torneios de amigos
 
+- Mata-mata só entre técnicos, de 2 a 16, sem clubes da máquina. Quem cria convida por código e faz o sorteio.
+- Depois do sorteio ninguém entra. Fora das potências de 2, os primeiros sorteados passam direto para a 2ª fase.
+- Jogo único, com pênaltis em caso de empate, às 10h, 15h e 20h. O torneio acaba no campeão.
 - O time mora no Mundo Oficial, e só lá ele muda: escalação, mercado, leilão e decisões.
-- Antes de cada rodada, a liga de amigos recebe uma cópia do time (`src/dominio/amigos.ts`) e nada volta.
+- Antes de cada fase, o torneio recebe uma cópia do time (`src/dominio/amigos.ts`) e nada volta.
   Por isso esses jogos não gastam energia, não causam lesões e não mudam o saldo.
-- As vagas sem técnico ficam com clubes da máquina, e quem criou a liga dá o início.
 
 ## Mundo Oficial
 
 - As ligas são sempre de 20 clubes e formam uma pirâmide: 1 liga na divisão 1, 2 na divisão 2, 4 na 3...
+- O técnico não escolhe dificuldade: ligas abertas nas temporadas 1 e 2 são fáceis, nas 3 e 4 normais e, depois, difíceis.
 - Criar o time é entrar no Mundo: o técnico vai para a divisão mais baixa e assume um clube da máquina, herdando os pontos dele.
   Sem vaga, abre a próxima liga, que joga depressa até alcançar o calendário das outras.
 - No fim da temporada, a liga manda os 4 últimos para baixo, 2 para cada liga logo abaixo, e recebe os 2

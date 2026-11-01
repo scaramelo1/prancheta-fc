@@ -21,9 +21,9 @@ export function inicioDaJanela(janela: number, horas = HORAS_MUNDO) {
 }
 
 /** Toda temporada começa no primeiro horário do dia, para a data 1 do calendário cair nele. */
-export function proximoInicio(agoraMs: number, horas = HORAS_MUNDO) {
-  const atual = indiceDaJanela(agoraMs, horas);
-  return atual + horas.length - (((atual % horas.length) + horas.length) % horas.length);
+export function proximoInicio(agoraMs: number) {
+  const atual = indiceDaJanela(agoraMs);
+  return atual + HORAS_MUNDO.length - (((atual % HORAS_MUNDO.length) + HORAS_MUNDO.length) % HORAS_MUNDO.length);
 }
 
 export const janelaDoMeioDia = (janela: number) => janela % HORAS_MUNDO.length === 0;

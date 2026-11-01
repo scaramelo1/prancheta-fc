@@ -3,7 +3,7 @@ import { nivelDoTime, repararEscalacao } from './escalacao.ts';
 import { gerarJovem } from './geracao.ts';
 import { criarLiga, tabelaGeral } from './liga.ts';
 import { valorDe } from './transferencias.ts';
-import type { Clube, Liga, Titulo } from './tipos.ts';
+import type { Clube, Dificuldade, Liga, Titulo } from './tipos.ts';
 
 /** Cada liga manda 4 clubes para baixo, e cada uma das duas ligas de baixo manda 2 para cima. */
 export const QUEDAS_POR_LIGA_DE_BAIXO = 2;
@@ -58,9 +58,16 @@ export function destinoDoTecnico(ligas: ResumoOficial[]): { id: string } | Posic
     : { divisao: divisao + 1, grupo: 0 };
 }
 
-export function criarLigaOficial(id: string, { divisao, grupo }: PosicaoNoMundo, semente: number): Liga {
-  const liga = criarLiga(id, { nomeClube: '', donoId: null, dificuldade: 'normal', duracao: 'temporada', semente });
-  return { ...liga, tipo: 'oficial', divisao: String(divisao), grupo, descem: 0 };
+/** Ninguém escolhe a dificuldade: as ligas abertas em temporadas mais avançadas nascem mais fortes. */
+export function dificuldadeDaTemporada(temporada: number): Dificuldade {
+  if (temporada <= 2) return 'facil';
+  return temporada <= 4 ? 'normal' : 'dificil';
+}
+
+export function criarLigaOficial(id: string, { divisao, grupo }: PosicaoNoMundo, semente: number, temporada = 1): Liga {
+  const dificuldade = dificuldadeDaTemporada(temporada);
+  const liga = criarLiga(id, { nomeClube: '', donoId: null, dificuldade, duracao: 'temporada', semente });
+  return { ...liga, tipo: 'oficial', divisao: String(divisao), grupo, descem: 0, temporada };
 }
 
 /** Pareia os primeiros de cada liga com os últimos da liga de cima. */

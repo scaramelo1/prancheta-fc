@@ -1,4 +1,4 @@
-import { levarTime } from '../src/dominio/amigos.ts';
+import { jogarFaseDoMataMata, levarTime } from '../src/dominio/amigos.ts';
 import { jogarRodada, novaTemporada, temporadaEncerrada } from '../src/dominio/liga.ts';
 import type { Liga } from '../src/dominio/tipos.ts';
 import { HORAS_AMIGOS, indiceDaJanela, janelaDoMeioDia } from './agenda.ts';
@@ -6,12 +6,14 @@ import type { Banco } from './banco.ts';
 import { emFila } from './fila.ts';
 import { ligaOficialAguardaVirada, timeDaConta, virarMundo } from './mundo.ts';
 
-/** Avança uma liga um horário de jogo. Terminada a temporada, a próxima começa no primeiro horário seguinte. */
+/** Avança uma liga um horário de jogo. Terminada a temporada, a próxima começa no primeiro horário do dia. */
 function avancar(liga: Liga, janela: number): Liga {
   if (!temporadaEncerrada(liga)) {
-    const nova = jogarRodada(liga);
+    const nova = liga.tipo === 'amigos' ? jogarFaseDoMataMata(liga) : jogarRodada(liga);
     return liga.rodadaAtual === 1 ? { ...nova, inicioJanela: janela } : nova;
   }
+  // O mata-mata de amigos acaba no campeão; só o Mundo tem outra temporada.
+  if (liga.tipo === 'amigos') return liga;
   return janelaDoMeioDia(janela) ? { ...jogarRodada(novaTemporada(liga)), inicioJanela: janela } : liga;
 }
 

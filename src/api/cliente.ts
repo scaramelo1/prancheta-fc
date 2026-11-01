@@ -1,3 +1,4 @@
+import type { SituacaoNoMataMata } from '../dominio/amigos.ts';
 import type { Decisao } from '../dominio/decisoes.ts';
 import type { Competicao, Escalacao, Fase, Liga, Partida, TipoCampeonato } from '../dominio/tipos.ts';
 import type { Oferta } from '../dominio/transferencias.ts';
@@ -12,7 +13,8 @@ export interface ResumoLiga {
   iniciada: boolean;
   temporada: number;
   clube: string | null;
-  posicao: number;
+  /** Só no mata-mata de amigos. */
+  situacao: SituacaoNoMataMata | null;
   tecnicos: number;
 }
 

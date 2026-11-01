@@ -6,7 +6,7 @@ export type Dificuldade = 'facil' | 'normal' | 'dificil';
 export type TipoCampeonato = 'amigos' | 'oficial';
 export type DuracaoLiga = 'torneio' | 'temporada';
 export type Competicao = 'liga' | 'copa' | 'prata' | 'taca';
-export type Fase = 'pontos' | 'quartas' | 'semifinal' | 'terceiro' | 'final';
+export type Fase = 'pontos' | 'oitavas' | 'quartas' | 'semifinal' | 'terceiro' | 'final';
 
 export interface Jogador {
   id: number;
@@ -131,6 +131,8 @@ export interface Liga {
   grupo?: number;
   /** Clubes que caem ao fim da temporada: 2 por liga aberta logo abaixo. */
   descem?: number;
+  /** Mata-mata de amigos: quem passou direto e espera a próxima fase, ou já venceu a sua. */
+  avancam?: number[];
   /** Janela da data 1 da temporada, para o calendário saber o horário de cada jogo. */
   inicioJanela?: number;
   temporada: number;

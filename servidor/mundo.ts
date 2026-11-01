@@ -22,11 +22,11 @@ async function abrirLiga(banco: Banco, posicao: PosicaoNoMundo, gerarCodigo: () 
   const ligas = await banco.resumoOficiais();
   const referencia = ligas.length > 0 ? await banco.ligaPorId(ligas[0].id) : null;
   const id = randomUUID();
-  let liga = criarLigaOficial(id, posicao, randomInt(2 ** 31));
+  let liga = criarLigaOficial(id, posicao, randomInt(2 ** 31), referencia?.liga.temporada);
 
   // O calendário é um só: a liga nova joga depressa até alcançar as outras.
   if (referencia) {
-    liga = { ...liga, temporada: referencia.liga.temporada, inicioJanela: referencia.liga.inicioJanela };
+    liga = { ...liga, inicioJanela: referencia.liga.inicioJanela };
     while (liga.rodadaAtual < referencia.liga.rodadaAtual && !temporadaEncerrada(liga)) {
       liga = jogarRodada(liga);
       await pausa();

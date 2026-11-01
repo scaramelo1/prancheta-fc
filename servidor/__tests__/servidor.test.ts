@@ -96,7 +96,7 @@ describe('API', () => {
     assert.equal((await chamar('POST', '/ligas', token)).status, 409);
   });
 
-  it('amigo entra pelo código com o mesmo time do Mundo e a liga fica com 20 clubes', async () => {
+  it('amigo entra pelo código com o mesmo time do Mundo, sem clubes da máquina', async () => {
     const dono = await novoTime('Clube do Dono');
     const amigo = await novoTime('Amigos FC');
     const { corpo: criada } = await chamar('POST', '/ligas', dono.token);
@@ -105,8 +105,8 @@ describe('API', () => {
     const { corpo: entrou } = await chamar('POST', '/ligas/entrar', amigo.token, { codigo: criada.codigo.toLowerCase() });
 
     assert.equal(entrou.liga.tipo, 'amigos');
-    assert.equal(entrou.liga.clubes.length, 20);
-    assert.equal(entrou.liga.clubes.filter((c: any) => c.donoId !== null).length, 2);
+    assert.equal(entrou.liga.clubes.length, 2);
+    assert.ok(entrou.liga.clubes.every((c: any) => c.donoId !== null));
     const meu = entrou.liga.clubes.find((c: any) => c.id === entrou.meuClubeId);
     const noMundo = amigo.visao.liga.clubes.find((c: any) => c.id === amigo.visao.meuClubeId);
     assert.equal(meu.nome, 'Amigos FC');
@@ -114,7 +114,7 @@ describe('API', () => {
     assert.equal(entrou.souDono, false);
     const lista = (await chamar('GET', '/ligas', amigo.token)).corpo;
     const amigos = lista.find((l: any) => l.tipo === 'amigos');
-    assert.deepEqual([lista.length, amigos.clube, amigos.tecnicos], [2, 'Amigos FC', 2]);
+    assert.deepEqual([lista.length, amigos.clube, amigos.tecnicos, amigos.situacao], [2, 'Amigos FC', 2, 'aguardando']);
   });
 
   it('entrar duas vezes não ocupa outro clube', async () => {
@@ -174,14 +174,19 @@ describe('API', () => {
     assert.equal((await chamar('GET', `/ligas/${corpo.id}`, await novaConta())).status, 404);
   });
 
-  it('só o dono inicia, e uma vez só', async () => {
+  it('só o dono sorteia, com pelo menos 2 técnicos, uma vez só, e depois ninguém entra', async () => {
     const dono = await novoTime('Clube do Dono');
     const amigo = await novoTime('Amigos FC');
     const { corpo: criada } = await chamar('POST', '/ligas', dono.token);
+    assert.equal((await chamar('POST', `/ligas/${criada.id}/iniciar`, dono.token)).status, 409);
     await chamar('POST', '/ligas/entrar', amigo.token, { codigo: criada.codigo });
     assert.equal((await chamar('POST', `/ligas/${criada.id}/iniciar`, amigo.token)).status, 403);
-    assert.equal((await chamar('POST', `/ligas/${criada.id}/iniciar`, dono.token)).corpo.iniciada, true);
+    const iniciada = (await chamar('POST', `/ligas/${criada.id}/iniciar`, dono.token)).corpo;
+    assert.equal(iniciada.iniciada, true);
+    assert.equal(iniciada.liga.partidas[0].fase, 'final');
     assert.equal((await chamar('POST', `/ligas/${criada.id}/iniciar`, dono.token)).status, 409);
+    const atrasado = await novoTime('Atrasado FC');
+    assert.equal((await chamar('POST', '/ligas/entrar', atrasado.token, { codigo: criada.codigo })).status, 409);
   });
 
   it('aceita escalação válida e recusa jogador de outro clube, repetido ou faltando', async () => {
@@ -260,50 +265,64 @@ describe('API', () => {
   });
 });
 
-describe('liga de amigos com o time único', () => {
-  it('joga às 10h, 15h e 20h, usa o time do Mundo e não gasta a energia dele', async () => {
-    // Criada às 11h: a liga de amigos começa às 10h do dia seguinte, e o Mundo, às 12h de hoje.
-    const DEZ_DA_MANHA = MEIO_DIA + 22 * HORA;
+describe('mata-mata de amigos com o time único', () => {
+  it('joga às 10h, 15h e 20h, usa o time do Mundo, não o desgasta e define o campeão', async () => {
+    // Criado às 11h: o Mundo começa às 12h, e o mata-mata, às 15h de hoje.
+    const QUINZE = MEIO_DIA + 3 * HORA;
     const banco = new BancoSqlite(':memory:');
     const api = criarApi(banco, { relogio: () => MEIO_DIA - HORA, contasPorHora: 100, contasAnonimas: true });
     await new Promise<void>((pronto) => { api.listen(0, '127.0.0.1', pronto); });
     const base = `http://127.0.0.1:${(api.address() as AddressInfo).port}`;
-    const dono = criarCliente((await criarConta(base)).token, base);
+    const novo = async () => criarCliente((await criarConta(base)).token, base);
+    const [dono, a, b] = [await novo(), await novo(), await novo()];
     const meu = (v: VisaoLiga) => v.liga.clubes.find((c) => c.id === v.meuClubeId)!;
 
     const mundo = await dono.entrarMundo('Time Único');
+    await a.entrarMundo('Time A');
+    await b.entrarMundo('Time B');
     const criada = await dono.criarLiga();
-    assert.equal((await dono.iniciar(criada.id)).iniciada, true);
+    await a.entrar(criada.codigo);
+    await b.entrar(criada.codigo);
+    const iniciada = await dono.iniciar(criada.id);
+    assert.equal(iniciada.liga.totalRodadas, 2);
+    assert.equal(iniciada.liga.partidas.length, 1, 'com 3 técnicos, um passa direto');
     await dono.salvarEscalacao(mundo.id, { ...meu(mundo).escalacao!, estilo: 'ofensivo' }, false);
 
-    await processarRodadas(banco, DEZ_DA_MANHA - 1);
+    await processarRodadas(banco, QUINZE - 1);
     assert.equal((await dono.liga(criada.id)).liga.rodadaAtual, 1);
     const antes = await dono.liga(mundo.id);
-    assert.equal(antes.liga.rodadaAtual, 4);
+    assert.equal(antes.liga.rodadaAtual, 2);
 
-    await processarRodadas(banco, DEZ_DA_MANHA);
+    await processarRodadas(banco, QUINZE);
     const amigos = await dono.liga(criada.id);
     const depois = await dono.liga(mundo.id);
     assert.equal(amigos.liga.rodadaAtual, 2);
+    assert.equal(amigos.liga.partidas.at(-1)!.fase, 'final');
     assert.equal(meu(amigos).escalacao!.estilo, 'ofensivo', 'a escalação do Mundo vale aqui');
-    assert.ok(meu(amigos).elenco.every((j) => j.id > 1_000_000));
-    assert.equal(depois.liga.rodadaAtual, 4, 'às 10h o Mundo não joga');
+    assert.ok(meu(amigos).elenco.every((j) => j.id >= 1_000_000));
+    assert.equal(depois.liga.rodadaAtual, 2, 'às 15h o Mundo não joga');
     assert.deepEqual(meu(depois).elenco, meu(antes).elenco, 'o jogo dos amigos não mexe no time');
     assert.equal(meu(depois).saldo, meu(antes).saldo);
 
-    await processarRodadas(banco, DEZ_DA_MANHA + 5 * HORA);
-    assert.equal((await dono.liga(criada.id)).liga.rodadaAtual, 3);
-    assert.equal((await dono.liga(mundo.id)).liga.rodadaAtual, 5);
-
     const calendario = await dono.calendario();
-    assert.ok(calendario.resultados.some((j) => j.tipo === 'amigos'));
     assert.ok(calendario.resultados.some((j) => j.tipo === 'oficial'));
     assert.ok(calendario.proximos.every((j, i, todos) => i === 0 || todos[i - 1].quando <= j.quando));
-    const proximoAmigos = calendario.proximos.find((j) => j.tipo === 'amigos')!;
-    const proximoMundo = calendario.proximos.find((j) => j.tipo === 'oficial')!;
     const hora = (ms: number) => new Date(ms - 3 * HORA).getUTCHours();
-    assert.ok([10, 15, 20].includes(hora(proximoAmigos.quando)));
-    assert.ok([12, 18, 21].includes(hora(proximoMundo.quando)));
+    assert.equal(hora(calendario.proximos.find((j) => j.tipo === 'oficial')!.quando), 18);
+    const final = (await Promise.all([dono, a, b].map((c) => c.calendario())))
+      .flatMap((c) => c.proximos).find((j) => j.tipo === 'amigos')!;
+    assert.equal(hora(final.quando), 20);
+
+    await processarRodadas(banco, QUINZE + 5 * HORA);
+    const fim = await dono.liga(criada.id);
+    assert.equal(fim.liga.titulos.length, 1);
+    const situacoes = [];
+    for (const c of [dono, a, b]) situacoes.push((await c.ligas()).find((l) => l.tipo === 'amigos')!.situacao);
+    assert.equal(situacoes.filter((x) => x === 'campeao').length, 1);
+    assert.equal(situacoes.filter((x) => x === 'eliminado').length, 2);
+
+    await processarRodadas(banco, QUINZE + 30 * HORA);
+    assert.equal((await dono.liga(criada.id)).liga.rodadaAtual, 3, 'acabou no campeão');
 
     await new Promise((pronto) => { api.close(pronto); });
     await banco.fechar();

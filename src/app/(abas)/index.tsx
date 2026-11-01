@@ -101,10 +101,10 @@ function CartaoAmigos({ resumo }: { resumo: ResumoLiga }) {
   return (
     <View style={estilos.cartao}>
       <Text style={estilos.rotuloCartao}>{t.ligaAmigos(resumo.codigo)} · {t.tecnicos(resumo.tecnicos)}</Text>
-      {resumo.iniciada
-        ? <Text style={estilos.suave}>{t.suaPosicaoAmigos(resumo.posicao)}</Text>
-        : <Text style={estilos.suave}>{t.conviteTexto(resumo.codigo)}</Text>}
-      <Botao secundario texto={t.compartilhar} aoTocar={() => Share.share({ message: t.mensagemConvite(resumo.codigo) })} />
+      <Text style={estilos.suave}>{resumo.iniciada && resumo.situacao ? t.situacoes[resumo.situacao] : t.conviteTexto(resumo.codigo)}</Text>
+      {!resumo.iniciada && (
+        <Botao secundario texto={t.compartilhar} aoTocar={() => Share.share({ message: t.mensagemConvite(resumo.codigo) })} />
+      )}
       {!resumo.iniciada && resumo.souDono && (
         <>
           <Text style={estilos.suave}>{t.iniciarAviso}</Text>

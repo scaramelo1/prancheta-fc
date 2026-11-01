@@ -31,7 +31,7 @@ interface NovaPartida {
   idaId?: number;
 }
 
-function agendar(liga: Liga, nova: NovaPartida): Partida {
+export function agendar(liga: Liga, nova: NovaPartida): Partida {
   const partida: Partida = { decisiva: false, ...nova, id: liga.partidas.length + 1, resultado: null };
   liga.partidas.push(partida);
   return partida;
@@ -188,7 +188,7 @@ function premiar(liga: Liga, clubeId: number, valor: number) {
   clubePorId(liga, clubeId).saldo += Math.round(valor * fatorDaDivisao(liga.divisao));
 }
 
-function registrarTitulo(liga: Liga, competicao: Competicao, torneio: number, clubeId: number) {
+export function registrarTitulo(liga: Liga, competicao: Competicao, torneio: number, clubeId: number) {
   liga.titulos.push({
     temporada: liga.temporada, torneio, competicao, clubeId, nomeClube: clubePorId(liga, clubeId).nome,
   });
@@ -299,7 +299,7 @@ function energiaMedia(escalacao: Escalacao, clube: Clube) {
   return Math.round(titulares.reduce((soma, j) => soma + j.energia, 0) / titulares.length);
 }
 
-function jogarPartida(liga: Liga, partida: Partida) {
+export function jogarPartida(liga: Liga, partida: Partida) {
   const casa = clubePorId(liga, partida.casaId);
   const fora = clubePorId(liga, partida.foraId);
   const semente = combinarSementes(liga.semente, liga.temporada, partida.id);

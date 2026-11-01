@@ -7,7 +7,7 @@ import { Aviso, Carregando, Chip, Escudo } from '../../componentes/ui';
 import { DATAS_DOS_TORNEIOS, DATAS_POR_TORNEIO, diaDaData, horarioDaData } from '../../dominio/calendario';
 import { clubePorId, partidasDaRodada, tabelaDaCompeticao, tabelaGeral, torneioAtual } from '../../dominio/liga';
 import { SOBEM_POR_LIGA, numeroDaDivisao } from '../../dominio/mundo';
-import type { Liga, LinhaTabela } from '../../dominio/tipos';
+import type { Liga, LinhaTabela, Partida } from '../../dominio/tipos';
 import { useLiga } from '../../hooks/useLiga';
 import { t } from '../../i18n';
 import { cores, espaco } from '../../tema';
@@ -53,6 +53,49 @@ function Classificacao({ liga, linhas, meuId, zonas }: { liga: Liga; linhas: Lin
   );
 }
 
+function Jogo({ liga, partida, meuId }: { liga: Liga; partida: Partida; meuId: number }) {
+  const casa = clubePorId(liga, partida.casaId);
+  const fora = clubePorId(liga, partida.foraId);
+  const minha = partida.casaId === meuId || partida.foraId === meuId;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      disabled={!partida.resultado}
+      onPress={() => router.push({ pathname: '/partida/[id]', params: { id: String(partida.id), aoVivo: '0', ligaId: liga.id } })}
+      style={[estilos.jogo, minha && estilos.linhaMinha]}
+    >
+      <Text style={[estilos.nome, estilos.direita]} numberOfLines={1}>{casa.nome}</Text>
+      <Text style={estilos.placar}>
+        {partida.resultado ? `${partida.resultado.golsCasa} x ${partida.resultado.golsFora}` : t.aguardando}
+      </Text>
+      <Text style={estilos.nome} numberOfLines={1}>{fora.nome}</Text>
+    </Pressable>
+  );
+}
+
+/** O mata-mata de amigos não tem tabela: mostra as fases, da primeira à final. */
+function Chave({ liga, meuId }: { liga: Liga; meuId: number }) {
+  const fases = [...new Set(liga.partidas.map((p) => p.rodada))].sort((a, b) => a - b);
+  if (fases.length === 0) return <Text style={estilos.legenda}>{t.chaveAguardando}</Text>;
+  const [campeao] = liga.titulos;
+  return (
+    <>
+      {campeao && <Text style={estilos.titulo}>{t.campeao(campeao.nomeClube)}</Text>}
+      {fases.map((rodada) => {
+        const partidas = partidasDaRodada(liga, rodada);
+        return (
+          <View key={rodada} style={estilos.fase}>
+            <Text style={estilos.titulo}>{t.fases[partidas[0].fase]}</Text>
+            <View style={estilos.lista}>
+              {partidas.map((p) => <Jogo key={p.id} liga={liga} partida={p} meuId={meuId} />)}
+            </View>
+          </View>
+        );
+      })}
+    </>
+  );
+}
+
 function Rodadas({ liga, meuId }: { liga: Liga; meuId: number }) {
   const [rodada, setRodada] = useState(Math.min(liga.rodadaAtual, liga.totalRodadas));
   const torneio = torneioAtual(liga);
@@ -62,31 +105,12 @@ function Rodadas({ liga, meuId }: { liga: Liga; meuId: number }) {
     <>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={estilos.chips}>
         {Array.from({ length: fim - inicio + 1 }, (_, i) => inicio + i).map((n) => (
-          <Chip key={n} texto={t.data(diaDaData(n), horarioDaData(n, liga.tipo))} ativo={n === rodada} aoTocar={() => setRodada(n)} />
+          <Chip key={n} texto={t.data(diaDaData(n), horarioDaData(n))} ativo={n === rodada} aoTocar={() => setRodada(n)} />
         ))}
       </ScrollView>
-      <Text style={estilos.titulo}>{t.data(diaDaData(rodada), horarioDaData(rodada, liga.tipo))}</Text>
+      <Text style={estilos.titulo}>{t.data(diaDaData(rodada), horarioDaData(rodada))}</Text>
       <View style={estilos.lista}>
-        {partidasDaRodada(liga, rodada).map((p) => {
-          const casa = clubePorId(liga, p.casaId);
-          const fora = clubePorId(liga, p.foraId);
-          const minha = p.casaId === meuId || p.foraId === meuId;
-          return (
-            <Pressable
-              key={p.id}
-              accessibilityRole="button"
-              disabled={!p.resultado}
-              onPress={() => router.push({ pathname: '/partida/[id]', params: { id: String(p.id), aoVivo: '0', ligaId: liga.id } })}
-              style={[estilos.jogo, minha && estilos.linhaMinha]}
-            >
-              <Text style={[estilos.nome, estilos.direita]} numberOfLines={1}>{casa.nome}</Text>
-              <Text style={estilos.placar}>
-                {p.resultado ? `${p.resultado.golsCasa} x ${p.resultado.golsFora}` : t.aguardando}
-              </Text>
-              <Text style={estilos.nome} numberOfLines={1}>{fora.nome}</Text>
-            </Pressable>
-          );
-        })}
+        {partidasDaRodada(liga, rodada).map((p) => <Jogo key={p.id} liga={liga} partida={p} meuId={meuId} />)}
       </View>
     </>
   );
@@ -117,6 +141,14 @@ export default function Tabela() {
   );
   if (!aberta || aberta.meuClubeId === null) return <Carregando />;
   const { liga, meuClubeId } = aberta;
+  if (liga.tipo === 'amigos') {
+    return (
+      <ScrollView contentContainerStyle={estilos.tela}>
+        {escolha}
+        <Chave liga={liga} meuId={meuClubeId} />
+      </ScrollView>
+    );
+  }
 
   // Nas finais não há torneio em andamento; mostra o último, o de encerramento.
   const torneio = torneioAtual(liga) || 3;
@@ -147,6 +179,7 @@ const estilos = StyleSheet.create({
   tela: { padding: espaco.m, gap: espaco.m },
   flex: { flex: 1 },
   chips: { flexDirection: 'row', gap: espaco.p },
+  fase: { gap: espaco.p },
   chipsLinha: { flexDirection: 'row', flexWrap: 'wrap', gap: espaco.p },
   titulo: { color: cores.texto, fontSize: 16, fontWeight: '700' },
   legenda: { color: cores.textoSuave, fontSize: 13, lineHeight: 19 },

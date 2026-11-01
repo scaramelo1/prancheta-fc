@@ -4,13 +4,15 @@ import type { IncomingMessage, Server, ServerResponse } from 'node:http';
 import { gzipSync } from 'node:zlib';
 
 import { aplicarDecisao, decisaoDoDia } from '../src/dominio/decisoes.ts';
-import { levarTime } from '../src/dominio/amigos.ts';
-import { clubeDoDono, criarLiga, entrarNaLiga, escalacaoValida, tabelaGeral } from '../src/dominio/liga.ts';
+import {
+  MAX_TECNICOS, MIN_TECNICOS, adicionarTecnico, criarMataMata, situacaoNoMataMata, sortearChave,
+} from '../src/dominio/amigos.ts';
+import { clubeDoDono, escalacaoValida, temporadaEncerrada } from '../src/dominio/liga.ts';
 import type { Clube, Escalacao, Liga, Partida } from '../src/dominio/tipos.ts';
 import {
   ErroTransferencia, comprarDaMaquina, criarLeilao, darLance, ofertasDoDia, venderParaFora,
 } from '../src/dominio/transferencias.ts';
-import { HORAS_AMIGOS, horasDaLiga, inicioDaJanela, proximoInicio } from './agenda.ts';
+import { HORAS_AMIGOS, horasDaLiga, indiceDaJanela, inicioDaJanela, proximoInicio } from './agenda.ts';
 import type { Banco, Conta, RegistroLiga } from './banco.ts';
 import { emFila } from './fila.ts';
 import { entrarNoMundo, timeDaConta } from './mundo.ts';
@@ -104,7 +106,7 @@ function resumoDaLiga({ id, codigo, donoId, janela, liga }: RegistroLiga, conta:
     iniciada: janela !== null,
     temporada: liga.temporada,
     clube: clube?.nome ?? null,
-    posicao: tabelaGeral(liga).findIndex((l) => l.clubeId === clube?.id) + 1,
+    situacao: clube && liga.tipo === 'amigos' ? situacaoNoMataMata(liga, clube.id, janela !== null) : null,
     tecnicos: liga.clubes.filter((c) => c.donoId !== null).length,
   };
 }
@@ -289,16 +291,12 @@ export function criarApi(banco: Banco, opcoes: OpcoesApi = {}): Server {
 
     if (rota === 'POST /ligas') {
       const time = await timeObrigatorio(conta);
-      if (await banco.contarLigasCriadas(conta.id) >= LIGAS_POR_CONTA) throw new ErroHttp(409, 'Limite de ligas atingido');
+      const emAndamento = (await banco.ligasDaConta(conta.id))
+        .filter((r) => r.donoId === conta.id && !temporadaEncerrada(r.liga));
+      if (emAndamento.length >= LIGAS_POR_CONTA) throw new ErroHttp(409, 'Limite de torneios atingido');
 
       const id = randomUUID();
-      const liga = levarTime(criarLiga(id, {
-        nomeClube: time.nome,
-        donoId: conta.id,
-        dificuldade: 'normal',
-        duracao: 'temporada',
-        semente: randomInt(2 ** 31),
-      }), conta.id, time);
+      const liga = adicionarTecnico(criarMataMata(id, randomInt(2 ** 31)), conta.id, time);
       const registro: RegistroLiga = { id, codigo: gerarCodigo(), donoId: conta.id, janela: null, liga };
       await banco.criarLiga(registro);
       return ok(visaoDaLiga(registro, conta), 201);
@@ -319,8 +317,9 @@ export function criarApi(banco: Banco, opcoes: OpcoesApi = {}): Server {
         // No Mundo Oficial, a vaga é definida pelo servidor, e não por código.
         if (!registro || registro.liga.tipo === 'oficial') throw new ErroHttp(404, 'Código não encontrado');
         if (clubeDoDono(registro.liga, conta.id)) return visaoDaLiga(registro, conta);
-        if (registro.liga.clubes.every((c) => c.donoId !== null)) throw new ErroHttp(409, 'A liga está cheia');
-        const liga = levarTime(entrarNaLiga(registro.liga, conta.id, time.nome), conta.id, time);
+        if (registro.janela !== null) throw new ErroHttp(409, 'O torneio já começou');
+        if (registro.liga.clubes.length >= MAX_TECNICOS) throw new ErroHttp(409, 'O torneio está cheio');
+        const liga = adicionarTecnico(registro.liga, conta.id, time);
         await banco.salvarLiga(registro.id, liga, registro.janela);
         await banco.entrarNaLiga(registro.id, conta.id);
         return visaoDaLiga({ ...registro, liga }, conta);
@@ -377,12 +376,14 @@ export function criarApi(banco: Banco, opcoes: OpcoesApi = {}): Server {
     if (rota === `POST /ligas/${ligaId}/iniciar`) {
       return ok(await emFila(async () => {
         const registro = await ligaDoMembro(ligaId, conta);
-        if (registro.donoId !== conta.id) throw new ErroHttp(403, 'Só quem criou a liga pode iniciar');
-        if (registro.janela !== null) throw new ErroHttp(409, 'A liga já começou');
-        // A janela guardada é a anterior ao primeiro jogo, que será o primeiro horário do dia seguinte.
-        const janela = proximoInicio(relogio(), HORAS_AMIGOS) - 1;
-        await banco.salvarLiga(registro.id, registro.liga, janela);
-        return visaoDaLiga({ ...registro, janela }, conta);
+        if (registro.donoId !== conta.id) throw new ErroHttp(403, 'Só quem criou o torneio pode iniciar');
+        if (registro.janela !== null) throw new ErroHttp(409, 'O torneio já começou');
+        if (registro.liga.clubes.length < MIN_TECNICOS) throw new ErroHttp(409, 'Convide pelo menos um amigo');
+        // A janela guardada é a atual, então o primeiro jogo é o próximo horário dos amigos.
+        const janela = indiceDaJanela(relogio(), HORAS_AMIGOS);
+        const liga = sortearChave(registro.liga);
+        await banco.salvarLiga(registro.id, liga, janela);
+        return visaoDaLiga({ ...registro, liga, janela }, conta);
       }));
     }
 

@@ -12,7 +12,6 @@ export const DATAS_DOS_TORNEIOS = DATAS_POR_TORNEIO * TORNEIOS_NA_TEMPORADA;
 /** Semifinais, disputa do terceiro lugar e final, uma por dia. */
 export const DATAS_DA_TACA = 3;
 export const HORARIOS = ['12h', '18h', '21h'];
-export const HORARIOS_AMIGOS = ['10h', '15h', '20h'];
 
 /** Turno e returno pelo método do rodízio; clubeIds precisa ter tamanho par. */
 export function gerarCalendario(clubeIds: number[]): Confronto[] {
@@ -53,8 +52,8 @@ export function copaDaData(data: number) {
 export const diaDaData = (data: number) =>
   (data <= DATAS_DOS_TORNEIOS ? Math.ceil(data / DATAS_POR_DIA) : DIAS_POR_TORNEIO * TORNEIOS_NA_TEMPORADA + data - DATAS_DOS_TORNEIOS);
 
-export const horarioDaData = (data: number, tipo: 'amigos' | 'oficial' = 'oficial') =>
-  (tipo === 'amigos' ? HORARIOS_AMIGOS : HORARIOS)[data <= DATAS_DOS_TORNEIOS ? (data - 1) % DATAS_POR_DIA : DATAS_POR_DIA - 1];
+export const horarioDaData = (data: number) =>
+  HORARIOS[data <= DATAS_DOS_TORNEIOS ? (data - 1) % DATAS_POR_DIA : DATAS_POR_DIA - 1];
 
 /** Torneio da data; 0 significa Taça dos Campeões. */
 export const torneioDaData = (data: number) => (data > DATAS_DOS_TORNEIOS ? 0 : Math.ceil(data / DATAS_POR_TORNEIO));
