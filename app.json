@@ -29,7 +29,8 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "br.com.fsadesigner.pranchetafc"
+      "bundleIdentifier": "br.com.fsadesigner.pranchetafc",
+      "infoPlist": {}
     },
     "android": {
       "package": "br.com.fsadesigner.pranchetafc",
@@ -40,6 +41,17 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false
-    }
+    },
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "3bae371e-a905-4f19-8b1c-fbc27e898bf4"
+      }
+    },
+    "owner": "scaramelos-team"
   }
 }
